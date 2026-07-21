@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Limit;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -53,4 +55,24 @@ public interface TaxaCambioRepositorio extends JpaRepository<TaxaCambio, Long> {
             """)
     List<TaxaCambio> historicoDoPar(@Param("origem") String origem,
                                     @Param("destino") String destino);
+
+    /**
+     * Versao paginada do historico, que e a exposta pela API.
+     *
+     * <p>Colecao ilimitada nao e opcao: em modelo append-only o par mais
+     * movimentado cresce sem teto, e uma resposta que devolve tudo degrada em
+     * silencio ate o dia em que derruba o processo.
+     *
+     * <p>Sem {@code ORDER BY} na consulta: a ordenacao vem do {@link Pageable},
+     * e declarar as duas coisas faria o Spring Data gerar SQL com ordenacao
+     * duplicada.
+     */
+    @Query("""
+            SELECT t FROM TaxaCambio t
+             WHERE t.moedaOrigem.codigo = :origem
+               AND t.moedaDestino.codigo = :destino
+            """)
+    Page<TaxaCambio> historicoDoPar(@Param("origem") String origem,
+                                    @Param("destino") String destino,
+                                    Pageable pagina);
 }
