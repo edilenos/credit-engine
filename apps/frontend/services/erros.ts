@@ -50,7 +50,13 @@ export class ErroDeConexao extends Error {
  */
 export function mensagemDe(status: number, problema: ProblemDetail | null): string {
   if (status >= 500) {
-    return "O servico esta indisponivel no momento. Tente novamente em instantes.";
+    // O id e' a unica coisa util que o operador pode levar ao suporte: a API
+    // deliberadamente nao diz o que quebrou, e sem ele a reclamacao vira
+    // "deu erro por volta das duas da tarde".
+    const base = "O servico esta indisponivel no momento. Tente novamente em instantes.";
+    return problema?.correlationId
+      ? `${base} Se persistir, informe ao suporte o codigo ${problema.correlationId}.`
+      : base;
   }
 
   if (status === 400) {

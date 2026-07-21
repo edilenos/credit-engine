@@ -1,9 +1,9 @@
 package br.com.srm.creditengine.negocio.cambio;
 
-import br.com.srm.creditengine.negocio.ExcecaoDeNegocio;
+import br.com.srm.creditengine.negocio.RecursoNaoEncontradoException;
 
 /** Codigo de moeda que nao existe no cadastro. */
-public class MoedaDesconhecidaException extends ExcecaoDeNegocio {
+public class MoedaDesconhecidaException extends RecursoNaoEncontradoException {
 
     private final String codigo;
 

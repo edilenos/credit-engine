@@ -2,7 +2,7 @@ package br.com.srm.creditengine.negocio.cambio;
 
 import java.time.OffsetDateTime;
 
-import br.com.srm.creditengine.negocio.ExcecaoDeNegocio;
+import br.com.srm.creditengine.negocio.RecursoNaoEncontradoException;
 
 /**
  * Nao ha cotacao vigente para o par de moedas na data pedida.
@@ -16,7 +16,7 @@ import br.com.srm.creditengine.negocio.ExcecaoDeNegocio;
  * cotado: o sistema nao deriva cotacao por 1/x. Ver
  * {@link ServicoDeCambio} para o porque.
  */
-public class CotacaoIndisponivelException extends ExcecaoDeNegocio {
+public class CotacaoIndisponivelException extends RecursoNaoEncontradoException {
 
     private final String moedaOrigem;
     private final String moedaDestino;

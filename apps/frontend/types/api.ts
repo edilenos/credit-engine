@@ -12,6 +12,11 @@ export interface ProblemDetail {
   detail?: string;
   instance?: string;
   campos?: Record<string, string>;
+  /**
+   * Id que liga esta resposta a linha de log do servidor. Vem em toda resposta
+   * de erro e tambem no cabecalho `X-Correlation-Id`.
+   */
+  correlationId?: string;
 }
 
 /** Nomes de moeda aceitos pelo sistema. Espelha a tabela `moeda` do seed. */
