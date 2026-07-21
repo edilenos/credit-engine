@@ -1,5 +1,7 @@
 # API — SRM Credit Engine
 
+[![CI](https://github.com/edilenos/credit-engine/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/edilenos/credit-engine/actions/workflows/ci.yml)
+
 Backend em Spring Boot 4.1 / Java 21 que precifica recebíveis, aplica câmbio e registra a cessão de forma auditável.
 
 O README da raiz do repositório cobre o projeto inteiro; este documento trata só da API.

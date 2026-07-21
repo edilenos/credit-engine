@@ -54,6 +54,12 @@ fi
 # arquivo de configuracao — sem tentar ser um scanner de verdade. Este
 # repositorio e' publico, e a primeira versao do application.yaml chegou a ter
 # a senha real do Postgres.
+#
+# FALSO POSITIVO CONHECIDO: valor descartavel em arquivo de CI, do tipo
+# `DB_PASSWORD: build-somente`, dispara o alerta. Aconteceu no PBI-40. A
+# alternativa seria afrouxar o filtro, e afrouxar um controle de seguranca para
+# fazer o proprio commit passar e' o instinto errado — o caminho certo e'
+# conferir o caso e usar --no-verify, que existe para isto.
 SUSPEITOS=$(git diff --cached -U0 | grep -E '^\+' \
     | grep -viE '^\+\+\+' \
     | grep -iE '(password|senha|secret|token|api[_-]?key)\s*[:=]\s*["'"'"']?[A-Za-z0-9!@#$%^&*_-]{8,}' \
