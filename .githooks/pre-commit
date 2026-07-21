@@ -1,0 +1,71 @@
+#!/bin/sh
+#
+# pre-commit — verifica estilo apenas dos apps que a mudanca tocou.
+#
+# Roda o linter de cada app so quando ha arquivo dele no stage. Mudanca de
+# documentacao nao dispara build nenhum: hook que demora onde nao precisa e'
+# hook que as pessoas aprendem a pular com --no-verify.
+#
+# Bypass emergencial:  git commit --no-verify
+
+set -e
+
+RAIZ=$(git rev-parse --show-toplevel)
+ESTAGIADOS=$(git diff --cached --name-only --diff-filter=ACMR)
+
+falhou=0
+
+vermelho() { printf '\033[31m%s\033[0m\n' "$1"; }
+verde()    { printf '\033[32m%s\033[0m\n' "$1"; }
+
+# ------------------------------------------------------------------ API
+if echo "$ESTAGIADOS" | grep -q '^apps/api/.*\.java$'; then
+    echo "→ API: verificando formatacao e estilo..."
+
+    # spotless:check e checkstyle:check, e nao o `verify` inteiro: aqui nao se
+    # roda teste. Suite completa e' o pre-push, porque ela precisa de banco e
+    # leva mais de um minuto — tempo demais para cada commit.
+    if ! (cd "$RAIZ/apps/api" && ./mvnw -q -o spotless:check checkstyle:check 2>&1); then
+        vermelho "✗ API fora do padrao."
+        echo "  Corrija com:  cd apps/api && ./mvnw spotless:apply"
+        echo "  O que o spotless nao resolve sozinho aparece no relatorio do checkstyle."
+        falhou=1
+    else
+        verde "✓ API ok"
+    fi
+fi
+
+# ------------------------------------------------------------- frontend
+if echo "$ESTAGIADOS" | grep -qE '^apps/frontend/.*\.(ts|tsx|mjs|css)$'; then
+    echo "→ frontend: rodando ESLint..."
+
+    if ! (cd "$RAIZ/apps/frontend" && pnpm lint 2>&1); then
+        vermelho "✗ frontend com problemas de lint."
+        echo "  Muitos sao corrigiveis com:  cd apps/frontend && pnpm lint --fix"
+        falhou=1
+    else
+        verde "✓ frontend ok"
+    fi
+fi
+
+# ------------------------------------------------------------- segredos
+#
+# Varredura rasa, de proposito: pega o descuido comum — senha colada num
+# arquivo de configuracao — sem tentar ser um scanner de verdade. Este
+# repositorio e' publico, e a primeira versao do application.yaml chegou a ter
+# a senha real do Postgres.
+SUSPEITOS=$(git diff --cached -U0 | grep -E '^\+' \
+    | grep -viE '^\+\+\+' \
+    | grep -iE '(password|senha|secret|token|api[_-]?key)\s*[:=]\s*["'"'"']?[A-Za-z0-9!@#$%^&*_-]{8,}' \
+    | grep -viE '\$\{|placeholder|troque_por|example|CHANGEME|\*\*\*' || true)
+
+if [ -n "$SUSPEITOS" ]; then
+    vermelho "✗ possivel credencial no que esta sendo commitado:"
+    echo "$SUSPEITOS" | sed 's/^/    /'
+    echo "  Se for falso positivo:  git commit --no-verify"
+    falhou=1
+fi
+
+if [ "$falhou" -ne 0 ]; then
+    exit 1
+fi

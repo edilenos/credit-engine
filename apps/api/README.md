@@ -46,7 +46,34 @@ cd apps/api
 | `./mvnw test` | Suíte completa (precisa do banco no ar) |
 | `./mvnw test -Dtest=NomeDaClasse` | Uma classe |
 | `./mvnw test -Dtest=NomeDaClasse#metodo` | Um teste |
+| `./mvnw verify` | **Lint + testes** — a mesma coisa que o CI e o hook de pre-push rodam |
+| `./mvnw spotless:apply` | Corrige formatação automaticamente |
 | `./mvnw spring-boot:run` | Sobe a aplicação |
+
+## Lint
+
+**Spotless** cuida de higiene — import não usado, import com curinga, ordem de import, espaço no fim da linha. **Checkstyle** cuida de defeito: `if` sem chave, `String` comparada com `==`, `catch` vazio, `equals` sem `hashCode`. Os dois rodam na fase `verify`.
+
+A configuração é deliberadamente enxuta, e a razão está escrita no `pom.xml` e no `checkstyle.xml`: `google-java-format` foi **medido e descartado** — reescreveria 147 arquivos e 19 mil linhas, requebrando todo o javadoc, num projeto cujo histórico de Git é entregável avaliado. Ficaram as regras cuja correção é sempre segura e que pegam problema de verdade.
+
+### Git hooks
+
+Versionados em `.githooks/`, em shell puro. Ative uma vez após clonar:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+| Hook | O que faz | Quando |
+|---|---|---|
+| `pre-commit` | Lint do app tocado + varredura rasa de credencial | Só roda o linter do app que tem arquivo no stage |
+| `pre-push` | `./mvnw verify` e `pnpm build` | Só do app que os commits a enviar mudaram |
+
+Mudança só de documentação não dispara build nenhum — hook que demora onde não precisa é hook que as pessoas aprendem a pular.
+
+**Bypass emergencial:** `git commit --no-verify` / `git push --no-verify`.
+
+> Usa `core.hooksPath`, não Husky. Husky exigiria um `package.json` na raiz do repositório, introduzindo Node num monorepo cuja raiz é neutra — dependência nova para resolver o que quatro linhas de shell resolvem.
 
 > **A suíte roda contra um Postgres real**, não embarcado. Sem `docker compose up -d db`, ela falha no `flywayInitializer` com erro de conexão.
 

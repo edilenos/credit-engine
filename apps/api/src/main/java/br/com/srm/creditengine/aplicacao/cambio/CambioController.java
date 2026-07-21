@@ -18,11 +18,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import io.swagger.v3.oas.annotations.tags.Tag;
-
 import br.com.srm.creditengine.negocio.cambio.ServicoDeCambio;
 import br.com.srm.creditengine.negocio.cambio.ServicoDeSincronizacaoDeCambio;
 import br.com.srm.creditengine.persistencia.entidade.TaxaCambio;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 /**

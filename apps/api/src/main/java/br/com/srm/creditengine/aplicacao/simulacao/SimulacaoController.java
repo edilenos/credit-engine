@@ -5,13 +5,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.tags.Tag;
-
 import br.com.srm.creditengine.negocio.precificacao.PrecificacaoDaOperacao;
 import br.com.srm.creditengine.negocio.precificacao.ServicoDeSimulacao;
 import br.com.srm.creditengine.negocio.precificacao.SolicitacaoDeSimulacao;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 /**

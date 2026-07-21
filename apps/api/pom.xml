@@ -57,6 +57,9 @@
 			com o servidor no ar, nao por suposicao. Ver docs/backlog.md, R1/R9.
 		-->
 		<springdoc.version>3.0.3</springdoc.version>
+		<spotless.version>3.8.0</spotless.version>
+		<checkstyle.plugin.version>3.6.0</checkstyle.plugin.version>
+		<checkstyle.version>10.21.4</checkstyle.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -161,6 +164,103 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+			<!--
+				Spotless: HIGIENE, nao reformatacao.
+
+				A escolha obvia seria googleJavaFormat, e ela foi medida antes de
+				ser descartada: reescreveria 147 arquivos, 19 mil linhas, porque
+				requebra todo javadoc em 100 colunas e reordena imports por outra
+				convencao. Num projeto cujo historico de Git e' entregavel
+				avaliado, isso enterraria a mudanca real em ruido e reescreveria
+				o `git blame` de tudo — custo alto para ganho estetico.
+
+				O que fica sao as regras que pegam problema de verdade e cuja
+				correcao e' sempre segura: import nao usado, import com curinga,
+				ordem de import, espaco em branco no fim da linha, arquivo sem
+				quebra final. A ordem configurada e' a que o projeto ja seguia,
+				nao uma nova.
+			-->
+			<plugin>
+				<groupId>com.diffplug.spotless</groupId>
+				<artifactId>spotless-maven-plugin</artifactId>
+				<version>${spotless.version}</version>
+				<configuration>
+					<java>
+						<removeUnusedImports/>
+						<importOrder>
+							<!--
+								`\#` sao os imports estaticos, e vem PRIMEIRO: e' a
+								ordem que o projeto ja usava em todos os testes.
+								Deixa-los no fim, que e' o default de varias
+								convencoes, moveria import em 36 arquivos para
+								acomodar a ferramenta em vez do contrario.
+							-->
+							<order>\#,java,javax,org,</order>
+						</importOrder>
+						<trimTrailingWhitespace/>
+						<endWithNewline/>
+					</java>
+					<!--
+						Sem sortPom pelo mesmo motivo: ordenar as dependencias
+						desgrudaria cada comentario da dependencia que ele explica,
+						e sao esses comentarios que registram as armadilhas de
+						versao (resilience4j-spring-boot4, springdoc 3.0.x).
+					-->
+				</configuration>
+				<executions>
+					<execution>
+						<!--
+							Ligado a `verify`, e nao a `compile`: e' a mesma fase que
+							o hook de pre-push e o CI executam, entao local e
+							pipeline aplicam exatamente as mesmas regras. Divergencia
+							entre os dois e' como se aprende a ignorar o linter.
+						-->
+						<id>spotless-check</id>
+						<phase>verify</phase>
+						<goals>
+							<goal>check</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+
+			<!--
+				Checkstyle: as regras que o Spotless nao cobre porque nao sao de
+				formatacao — chave ausente em if de uma linha, igualdade de
+				String com ==, catch vazio, classe utilitaria instanciavel.
+
+				Configuracao propria em checkstyle.xml. Os pacotes padrao (sun,
+				google) trazem dezenas de regras de estilo que brigariam com o
+				codigo existente pelo mesmo motivo do googleJavaFormat.
+			-->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-checkstyle-plugin</artifactId>
+				<version>${checkstyle.plugin.version}</version>
+				<dependencies>
+					<dependency>
+						<groupId>com.puppycrawl.tools</groupId>
+						<artifactId>checkstyle</artifactId>
+						<version>${checkstyle.version}</version>
+					</dependency>
+				</dependencies>
+				<configuration>
+					<configLocation>checkstyle.xml</configLocation>
+					<includeTestSourceDirectory>true</includeTestSourceDirectory>
+					<consoleOutput>true</consoleOutput>
+					<failsOnError>true</failsOnError>
+					<violationSeverity>warning</violationSeverity>
+				</configuration>
+				<executions>
+					<execution>
+						<id>checkstyle-check</id>
+						<phase>verify</phase>
+						<goals>
+							<goal>check</goal>
+						</goals>
+					</execution>
+				</executions>
 			</plugin>
 		</plugins>
 	</build>

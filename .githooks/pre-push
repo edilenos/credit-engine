@@ -1,0 +1,58 @@
+#!/bin/sh
+#
+# pre-push — roda a suite antes de publicar.
+#
+# Aqui sim vale o custo: um push com teste quebrado vira CI vermelha e,
+# se ninguem estiver olhando, master quebrada. Um minuto local e' mais barato.
+#
+# Como no pre-commit, so roda o que a comparacao com o remoto mostrar tocado.
+#
+# Bypass emergencial:  git push --no-verify
+
+set -e
+
+RAIZ=$(git rev-parse --show-toplevel)
+
+vermelho() { printf '\033[31m%s\033[0m\n' "$1"; }
+verde()    { printf '\033[32m%s\033[0m\n' "$1"; }
+
+# Compara com o remoto para saber o que os commits a enviar realmente mudaram.
+# Branch nova ainda nao tem upstream — nesse caso usa-se o master de origem.
+UPSTREAM=$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || echo "origin/master")
+ALTERADOS=$(git diff --name-only "$UPSTREAM"...HEAD 2>/dev/null || git diff --name-only origin/master...HEAD)
+
+falhou=0
+
+if echo "$ALTERADOS" | grep -q '^apps/api/'; then
+    echo "→ API: rodando verify (spotless + checkstyle + 299 testes)..."
+    echo "  Precisa do banco no ar:  docker compose up -d db"
+
+    # `verify` e nao `test`: e' a mesma fase que o CI executa, entao passar
+    # aqui e falhar la seria divergencia entre as duas — que e' como se aprende
+    # a ignorar o resultado local.
+    if ! (cd "$RAIZ/apps/api" && ./mvnw -q verify 2>&1); then
+        vermelho "✗ verify da API falhou. O push foi bloqueado."
+        echo "  Se o erro for de conexao, o banco nao esta no ar."
+        falhou=1
+    else
+        verde "✓ API ok"
+    fi
+fi
+
+if echo "$ALTERADOS" | grep -q '^apps/frontend/'; then
+    echo "→ frontend: build de producao..."
+
+    # Nao ha suite no frontend (lacuna registrada em apps/frontend/CLAUDE.md).
+    # O build e' a verificacao mais forte disponivel: pega erro de tipo e,
+    # entre outras coisas, fronteira de Suspense faltando.
+    if ! (cd "$RAIZ/apps/frontend" && pnpm build 2>&1 | tail -20); then
+        vermelho "✗ build do frontend falhou. O push foi bloqueado."
+        falhou=1
+    else
+        verde "✓ frontend ok"
+    fi
+fi
+
+if [ "$falhou" -ne 0 ]; then
+    exit 1
+fi
