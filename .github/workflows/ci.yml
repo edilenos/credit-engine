@@ -1,0 +1,94 @@
+name: CI
+
+# Esqueleto do pipeline (PBI-05): build e testes.
+# O linter entra no PBI-40, quando Spotless e Checkstyle existirem — o
+# enunciado exige CI rodando testes *e* lint (paragrafo 6, nivel Senior).
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+# Cancela execucoes anteriores da mesma ref: push seguido nao acumula fila.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    name: API — build e testes
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17.5-alpine
+        env:
+          POSTGRES_DB: credit-engine
+          POSTGRES_USER: postgres
+          # Credencial efemera: derivada da execucao, unica por run, valida
+          # so dentro da rede do runner. Nao e' segredo e nao vale fora daqui.
+          # A expressao se repete no step porque o contexto `env` do job nao
+          # esta disponivel na definicao de `services`.
+          POSTGRES_PASSWORD: ci-${{ github.run_id }}-${{ github.run_attempt }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d credit-engine"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configura JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Build e testes
+        working-directory: apps/api
+        env:
+          # Exercita o caminho de variavel de ambiente da configuracao: aqui
+          # nao existe application-local.yaml, e o import dele e' 'optional:'.
+          # Se este job passa, o fallback para ambiente esta correto.
+          DB_URL: jdbc:postgresql://localhost:5432/credit-engine
+          DB_USERNAME: postgres
+          DB_PASSWORD: ci-${{ github.run_id }}-${{ github.run_attempt }}
+        run: ./mvnw --batch-mode verify
+
+  frontend:
+    name: Frontend — build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configura pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          # A versao vem do campo packageManager; o package.json nao esta na
+          # raiz do repositorio, entao o caminho precisa ser explicito.
+          package_json_file: apps/frontend/package.json
+
+      - name: Configura Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: apps/frontend/pnpm-lock.yaml
+
+      - name: Instala dependencias
+        working-directory: apps/frontend
+        # --frozen-lockfile falha se o lockfile estiver dessincronizado do
+        # package.json, em vez de resolver silenciosamente outra arvore.
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        working-directory: apps/frontend
+        run: pnpm build
