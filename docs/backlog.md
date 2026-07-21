@@ -122,7 +122,10 @@ Itens do nível 🟣 Especialista/Staff. A exclusão é deliberada e registrada 
 
 ## 4. Modelo de domínio preliminar
 
-> **Fonte e destino:** esta seção é a versão de planejamento. O PBI-07 a **extrai e refina** em `docs/data-model.md`, que passa a ser a versão definitiva — inclusive o dicionário de dados coluna a coluna, que não cabe aqui. A partir da extração, mudança de modelo se faz lá; esta seção congela como registro da decisão inicial.
+> ## ✅ Extraída — esta seção está congelada
+> O PBI-07 extraiu e refinou este conteúdo em **[`data-model.md`](data-model.md)**, que é a versão definitiva. Mudança de modelo se faz lá. O que segue permanece como registro da decisão inicial.
+>
+> O documento extraído acrescenta o que não cabia aqui: dicionário de dados coluna a coluna com tipo, nulidade e `CHECK`, justificativa de precisão e escala por família de coluna, índices com o alerta de que o Postgres não indexa FK automaticamente, diagrama de ciclo de vida da operação, e o que ficou fora de escopo.
 
 ```mermaid
 erDiagram

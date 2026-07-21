@@ -32,7 +32,7 @@ When picking up a task, find its PBI first — the branch name and commit messag
 
 | Backlog section | Extracted by | Becomes authoritative at |
 |---|---|---|
-| §4 Modelo de domínio | PBI-07 | `docs/data-model.md` |
+| §4 Modelo de domínio | PBI-07 | `docs/data-model.md` ✅ **já extraído** |
 | §8 Critérios não-funcionais | PBI-42 | `docs/acceptance-criteria.md` |
 | §10 Convenções de Git | PBI-04 | `docs/git-workflow.md` ✅ **já extraído** |
 
