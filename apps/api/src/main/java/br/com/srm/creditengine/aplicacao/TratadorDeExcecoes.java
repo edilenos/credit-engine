@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import br.com.srm.creditengine.negocio.cambio.CotacaoIndisponivelException;
 import br.com.srm.creditengine.negocio.cambio.CotacaoNaoEncontradaException;
 import br.com.srm.creditengine.negocio.cambio.MoedaDesconhecidaException;
+import br.com.srm.creditengine.negocio.cessao.CedenteNaoEncontradoException;
+import br.com.srm.creditengine.negocio.cessao.OperacaoNaoEncontradaException;
 
 /**
  * Tratamento global de excecoes.
@@ -41,7 +43,9 @@ public class TratadorDeExcecoes {
     @ExceptionHandler({
             MoedaDesconhecidaException.class,
             CotacaoIndisponivelException.class,
-            CotacaoNaoEncontradaException.class
+            CotacaoNaoEncontradaException.class,
+            CedenteNaoEncontradoException.class,
+            OperacaoNaoEncontradaException.class
     })
     public ProblemDetail naoEncontrado(RuntimeException excecao) {
         ProblemDetail problema = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, excecao.getMessage());

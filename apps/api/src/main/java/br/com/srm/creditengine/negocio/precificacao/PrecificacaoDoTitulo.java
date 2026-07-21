@@ -3,6 +3,7 @@ package br.com.srm.creditengine.negocio.precificacao;
 import java.math.BigDecimal;
 
 import br.com.srm.creditengine.dominio.ConvencaoContagem;
+import br.com.srm.creditengine.persistencia.entidade.ParametroPrecificacao;
 
 /**
  * Resultado da precificacao de um titulo, com todos os parametros usados.
@@ -17,6 +18,10 @@ import br.com.srm.creditengine.dominio.ConvencaoContagem;
  *
  * @param valorFace         valor nominal do titulo
  * @param valorPresente     quanto o fundo desembolsa, ja na escala da moeda
+ * @param parametroAplicado registro de taxa base usado — a <b>linhagem</b>. O
+ *                          valor vai congelado em {@code taxaBaseAplicada}; o
+ *                          FK diz de qual registro ele veio, e um sem o outro
+ *                          deixa a auditoria incompleta
  * @param taxaBaseAplicada  custo de oportunidade do fundo no momento
  * @param spreadAplicado    premio de risco produzido pela Strategy do produto
  * @param convencaoAplicada convencao que normalizou o prazo em expoente
@@ -25,6 +30,7 @@ import br.com.srm.creditengine.dominio.ConvencaoContagem;
 public record PrecificacaoDoTitulo(
         BigDecimal valorFace,
         BigDecimal valorPresente,
+        ParametroPrecificacao parametroAplicado,
         BigDecimal taxaBaseAplicada,
         BigDecimal spreadAplicado,
         ConvencaoContagem convencaoAplicada,

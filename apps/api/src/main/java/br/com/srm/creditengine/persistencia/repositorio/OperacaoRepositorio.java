@@ -30,5 +30,21 @@ public interface OperacaoRepositorio extends JpaRepository<Operacao, Long> {
     @EntityGraph(attributePaths = "recebiveis")
     Optional<Operacao> findWithRecebiveisById(Long id);
 
+    /**
+     * Carrega a operacao com tudo que a resposta da API toca.
+     *
+     * <p>O grafo lista associacao por associacao de proposito. Faltando uma, o
+     * mapeamento para DTO acontece com a sessao ja fechada e levanta
+     * {@code LazyInitializationException} — falha que nenhum teste
+     * {@code @Transactional} pega, porque neles a sessao continua aberta a
+     * requisicao inteira. Ja aconteceu uma vez neste projeto, nos endpoints de
+     * cambio.
+     */
+    @EntityGraph(attributePaths = {
+            "cedente", "moedaTitulo", "moedaLiquidacao", "taxaCambio",
+            "recebiveis", "recebiveis.tipo"
+    })
+    Optional<Operacao> findCompletaById(Long id);
+
     List<Operacao> findByCedenteIdAndStatus(Long cedenteId, StatusOperacao status);
 }
