@@ -26,11 +26,19 @@ Run from this directory (`apps/frontend/`). pnpm is pinned via `packageManager` 
 
 ## The API is on 8081
 
-Not the Boot default 8080. The base URL comes from `NEXT_PUBLIC_API_URL` — never hardcode a host. `next.config.ts` is currently empty; no dev proxy is configured yet (PBI-25 decides proxy vs. direct call).
+Not the Boot default 8080. The base URL comes from `NEXT_PUBLIC_API_URL`, read in `services/config.ts` — never hardcode a host.
+
+**Decided in PBI-25: direct call, no dev proxy.** `next.config.ts` stays empty. The browser talks to `http://localhost:8081` and CORS is configured on the API side (`ConfiguracaoDeCors`, origins from `APP_CORS_ORIGINS`, no wildcard). A Next rewrite would have hidden the cross-origin problem in dev and let it surface in production, where the two really are separate origins.
+
+**There is no default for `NEXT_PUBLIC_API_URL`** — `urlDaApi()` throws `ConfiguracaoAusenteError` when it is missing. `.env.example` is committed (un-ignored explicitly in `.gitignore`); `.env.local` is not.
 
 ## Current state
 
-Untouched `create-next-app` boilerplate — `app/page.tsx` still renders the Next.js splash. No API client, no layer structure yet. PBI-25 clears the boilerplate and establishes the architecture; PBI-26 builds the first screen.
+Boilerplate cleared, layers in place (PBI-25). `app/page.tsx` is a deliberately minimal landing — the Painel do Operador is PBI-26, and inventing UI here would only be thrown away.
+
+Working: HTTP client with timeout and typed errors, `useSimulacao` hook, pt-BR formatting, `POST /api/v1/simulacoes` wired end to end and verified against a running API.
+
+Still absent: any real screen, and **any test runner** — `pnpm build` and `pnpm lint` are the only automated checks on this side.
 
 ## Architecture
 
@@ -40,8 +48,19 @@ The spec grades separation of presentation from business/state logic (§4.3). St
 |---|---|---|
 | `components/` | Pure presentation | `fetch`, business rules |
 | `features/` | Hooks and per-domain state (simulação, transações) | Direct DOM/markup concerns |
-| `services/` | HTTP client, DTO mapping, uniform error and timeout handling | UI state |
+| `services/` | HTTP client, per-domain calls, uniform error and timeout handling | UI state |
 | `types/` | Types mirroring the API contracts | — |
+| `lib/` | Cross-cutting utilities (pt-BR formatting) | Anything domain-specific |
+
+The dependency direction is one-way: `componente → hook (features/) → service → http-client → API`. A component never imports `http-client`.
+
+### Decimals arrive as JSON numbers, not strings
+
+Verified against the raw body: the API emits `"valorPresente":96284.58`. Jackson serializes `BigDecimal` as a JSON number, so `JSON.parse` yields a `double` and the backend's arbitrary precision ends at the HTTP boundary. Exact for display here (~15 significant digits against `NUMERIC(19,2)`), lossy only above ~1e13.
+
+**The rule this imposes: the client does no money arithmetic.** Totals, deságios and conversions come computed from the API; this side only formats. Summing in the browser would reintroduce precisely the error the backend avoided.
+
+Switching the API to string serialization would close the gap for real — it is a Jackson config change plus updating the PBI-24 contract tests. Not done, deliberately, and not silently: it is written down here and in `apps/frontend/README.md`.
 
 ### No global state library — this is a recorded decision
 

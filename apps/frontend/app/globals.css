@@ -1,26 +1,23 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
+/*
+ * Tailwind CSS 4: a configuracao e' CSS-first. Nao existe tailwind.config.js —
+ * tokens de tema entram em @theme e o plugin PostCSS e' @tailwindcss/postcss.
+ */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  font-family: var(--font-sans), system-ui, sans-serif;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/*
+ * Digitos de largura fixa para colunas de valores. Em coluna de numeros, o
+ * desalinhamento entre "1.234,50" e "999,00" e' o que faz o olho ler a ordem de
+ * grandeza errada — e aqui ordem de grandeza e' dinheiro.
+ */
+.tabular {
+  font-variant-numeric: tabular-nums;
 }
