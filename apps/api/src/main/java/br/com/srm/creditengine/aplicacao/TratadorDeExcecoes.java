@@ -1,5 +1,6 @@
 package br.com.srm.creditengine.aplicacao;
 
+import java.sql.SQLException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -122,15 +123,65 @@ public class TratadorDeExcecoes {
      * <p>A mensagem e' fixa porque a original traz nome de constraint e de
      * tabela. O detalhe fica no log, com a correlacao.
      */
-    @ExceptionHandler({
-            OptimisticLockingFailureException.class,
-            DataIntegrityViolationException.class
-    })
-    public ProblemDetail conflitoDeConcorrencia(Exception excecao) {
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ProblemDetail conflitoDeConcorrencia(OptimisticLockingFailureException excecao) {
         log.warn("Conflito de concorrencia: {}", excecao.getMessage());
         return problema(HttpStatus.CONFLICT, "Conflito de concorrencia",
                 "A operacao foi alterada por outra requisicao. "
                         + "Releia o recurso e tente novamente.");
+    }
+
+    /**
+     * O banco recusou a escrita — e o motivo importa.
+     *
+     * <p>{@code DataIntegrityViolationException} cobre coisas muito diferentes:
+     * corrida por chave unica, estouro de faixa numerica, violacao de
+     * {@code CHECK}. Tratar todas como conflito de concorrencia produzia a pior
+     * combinacao possivel: um lote cujo total estourava
+     * {@code NUMERIC(19,2)} respondia <i>"a operacao foi alterada por outra
+     * requisicao"</i>, e o cliente repetia para sempre algo que jamais ia
+     * funcionar.
+     *
+     * <p>O {@code SQLState} distingue. {@code 23505} e' disputa e vira 409;
+     * estouro e {@code CHECK} sao dado que nao cabe e viram 422. O resto e'
+     * defeito nosso e sobe para o tratamento de erro inesperado, com stacktrace
+     * no log.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ProblemDetail integridadeViolada(DataIntegrityViolationException excecao) {
+        String estado = sqlState(excecao);
+
+        if (UNIQUE_VIOLATION.equals(estado)) {
+            log.warn("Violacao de unicidade: {}", excecao.getMessage());
+            return problema(HttpStatus.CONFLICT, "Conflito de concorrencia",
+                    "A operacao foi alterada por outra requisicao. "
+                            + "Releia o recurso e tente novamente.");
+        }
+
+        if (NUMERIC_OUT_OF_RANGE.equals(estado) || CHECK_VIOLATION.equals(estado)) {
+            log.warn("Dado fora da faixa aceita pelo banco (SQLState {}): {}",
+                    estado, excecao.getMessage());
+            return problema(HttpStatus.UNPROCESSABLE_ENTITY, "Valor invalido",
+                    "Um dos valores informados esta fora da faixa aceita pelo sistema.");
+        }
+
+        return erroInesperado(excecao);
+    }
+
+    /** {@code unique_violation} — dois escritores, um recurso. */
+    private static final String UNIQUE_VIOLATION = "23505";
+    /** {@code numeric_value_out_of_range} — o numero nao cabe na coluna. */
+    private static final String NUMERIC_OUT_OF_RANGE = "22003";
+    /** {@code check_violation} — invariante do schema recusou o valor. */
+    private static final String CHECK_VIOLATION = "23514";
+
+    private String sqlState(Throwable excecao) {
+        for (Throwable causa = excecao; causa != null; causa = causa.getCause()) {
+            if (causa instanceof SQLException sql && sql.getSQLState() != null) {
+                return sql.getSQLState();
+            }
+        }
+        return null;
     }
 
     // ------------------------------------------------------------------ 422
