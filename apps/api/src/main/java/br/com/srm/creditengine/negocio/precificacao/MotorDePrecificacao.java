@@ -9,10 +9,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import br.com.srm.creditengine.dominio.ConvencaoContagem;
 import br.com.srm.creditengine.dominio.Periodicidade;
-import br.com.srm.creditengine.dominio.PrecisaoDecimal;
 import br.com.srm.creditengine.persistencia.entidade.ParametroPrecificacao;
 import br.com.srm.creditengine.persistencia.repositorio.ParametroPrecificacaoRepositorio;
-import ch.obermuhlner.math.big.BigDecimalMath;
 
 /**
  * Calcula o valor presente de um titulo — o coracao do sistema.
@@ -85,25 +83,11 @@ public class MotorDePrecificacao {
         BigDecimal expoente = convencoes.expoente(
                 convencao, unidade, contexto.dataOperacao(), contexto.dataVencimento());
 
-        BigDecimal valorPresente = descontar(contexto.valorFace(), taxaBase.add(spread), expoente);
+        BigDecimal valorPresente = CalculadoraDeValorPresente.descontar(
+                contexto.valorFace(), taxaBase.add(spread), expoente);
 
         return new PrecificacaoDoTitulo(
                 contexto.valorFace(), valorPresente, taxaBase, spread, convencao, expoente);
-    }
-
-    /**
-     * {@code VF / (1 + i)^n}.
-     *
-     * <p>A divisao passa por {@link PrecisaoDecimal#dividir}, nunca pela
-     * sobrecarga de um argumento: {@code VF / (1+i)^n} produz dizima o tempo
-     * todo, e {@code BigDecimal.divide(BigDecimal)} lanca
-     * {@code ArithmeticException} nesse caso.
-     */
-    private BigDecimal descontar(BigDecimal valorFace, BigDecimal taxaTotal, BigDecimal expoente) {
-        BigDecimal base = BigDecimal.ONE.add(taxaTotal);
-        BigDecimal fator = BigDecimalMath.pow(base, expoente, PrecisaoDecimal.CONTEXTO);
-
-        return PrecisaoDecimal.comoMoeda(PrecisaoDecimal.dividir(valorFace, fator));
     }
 
     /**
