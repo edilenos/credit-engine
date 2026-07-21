@@ -82,6 +82,18 @@ public final class PrecisaoDecimal {
      */
     public static final MathContext CONTEXTO = MathContext.DECIMAL128;
 
+    /**
+     * Maior valor monetario representavel: o teto de {@code NUMERIC(19,2)}.
+     *
+     * <p>Existe porque a validacao por item nao protege o total. Cada titulo
+     * cabe em dezessete digitos inteiros, mas a soma de um lote de quinhentos
+     * nao — e o estouro so aparecia no {@code INSERT}, como erro de integridade
+     * do Postgres. Traduzido pelo tratamento generico, virava
+     * <i>"a operacao foi alterada por outra requisicao"</i>: o cliente tentava
+     * de novo e falhava identicamente para sempre.
+     */
+    public static final BigDecimal VALOR_MAXIMO = new BigDecimal("99999999999999999.99");
+
     private PrecisaoDecimal() {
         // utilitario
     }

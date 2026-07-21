@@ -9,6 +9,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import br.com.srm.creditengine.dominio.PrecisaoDecimal;
 import br.com.srm.creditengine.negocio.cambio.Conversao;
 import br.com.srm.creditengine.negocio.cambio.ServicoDeCambio;
 
@@ -72,8 +73,10 @@ public class PrecificadorDeOperacao {
                 .map(motor::precificar)
                 .toList();
 
-        BigDecimal faceTotal = somar(precificados, PrecificacaoDoTitulo::valorFace);
-        BigDecimal presenteTotal = somar(precificados, PrecificacaoDoTitulo::valorPresente);
+        BigDecimal faceTotal = exigirRepresentavel("Valor de face total",
+                somar(precificados, PrecificacaoDoTitulo::valorFace));
+        BigDecimal presenteTotal = exigirRepresentavel("Valor presente total",
+                somar(precificados, PrecificacaoDoTitulo::valorPresente));
 
         if (moedaTitulo.equals(moedaLiquidacao)) {
             return new PrecificacaoDaOperacao(
@@ -81,11 +84,34 @@ public class PrecificadorDeOperacao {
         }
 
         // Aqui, e so aqui, o cambio entra: depois de todo o desconto calculado.
+        // O resultado e' checado de novo porque a conversao pode levar o total
+        // para fora da faixa mesmo com o presente dentro dela — basta a cotacao
+        // ser maior que 1.
         OffsetDateTime momento = dataOperacao.atStartOfDay().atOffset(ZoneOffset.UTC);
         Conversao conversao = cambio.converter(presenteTotal, moedaTitulo, moedaLiquidacao, momento);
 
         return new PrecificacaoDaOperacao(precificados, faceTotal, presenteTotal,
-                conversao.valorConvertido(), conversao.cotacaoAplicada());
+                exigirRepresentavel("Valor de liquidacao", conversao.valorConvertido()),
+                conversao.cotacaoAplicada());
+    }
+
+    /**
+     * O total precisa caber no que o sistema representa.
+     *
+     * <p>A validacao por item nao cobre isto: cada titulo cabe em dezessete
+     * digitos, a soma de quinhentos nao. Sem a checagem, o estouro so aparecia
+     * no {@code INSERT}, como erro de integridade do Postgres — e o tratamento
+     * generico o traduzia em "a operacao foi alterada por outra requisicao",
+     * mandando o cliente repetir algo que falharia identicamente para sempre.
+     *
+     * <p>Vale tambem para a simulacao, que nao grava nada: prever um total que
+     * a efetivacao vai recusar e' pior do que recusar na hora.
+     */
+    private BigDecimal exigirRepresentavel(String oQue, BigDecimal valor) {
+        if (valor.compareTo(PrecisaoDecimal.VALOR_MAXIMO) > 0) {
+            throw new ValorForaDeFaixaException(oQue, valor);
+        }
+        return valor;
     }
 
     private BigDecimal somar(List<PrecificacaoDoTitulo> titulos,
