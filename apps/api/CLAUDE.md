@@ -55,7 +55,9 @@ Imported config outranks the importing document in Spring Boot, so the local fil
 
 Boot 4.1.0 has **no native `.env` support** (verified against the jar — there is no dotenv property source), which is why this uses `spring.config.import`.
 
-Flyway owns the schema against `classpath:db/migration`, currently holding only a `.gitkeep` so the location resolves. `ddl-auto` is `validate` — Hibernate only checks; it never generates. A mapping that disagrees with a migration fails startup, which is the intended behavior.
+Flyway owns the schema against `classpath:db/migration` — `V1` cadastros, `V2` núcleo transacional, `V3` seed. `ddl-auto` is `validate` — Hibernate only checks; it never generates. A mapping that disagrees with a migration fails startup, which is the intended behavior.
+
+> **Adding a migration? Regenerate `docs/schema.sql`.** It is a `pg_dump` of the migrated schema, kept because §7.2 of the spec asks for consolidated DDL in `/docs`. It does not regenerate itself, so it silently goes stale. The exact command is in that file's header; run `pg_dump` **inside the container** so its version matches the server's.
 
 ## Domain rules that constrain this code
 
