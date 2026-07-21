@@ -38,10 +38,6 @@ When picking up a task, find its PBI first — the branch name and commit messag
 
 Other planned docs: `docs/schema.sql` (PBI-12), `docs/c4-context.md` + `docs/c4-container.md` (PBI-41), `docs/performance.md` (PBI-36).
 
-## Code style
-- Minimal comments: explain only the non-obvious "why", never the "what".
-- Prefer self-documenting code with clear names over line-by-line comments.
-
 ### Scope decision — settled: full Sênior, nothing cut
 
 **Scenario A: all 45 PBIs, ~78.5 h ≈ 9.8 working days**, against a nominal 3–4 days (24–32 h). Decided before the first commit, invoking the spec's §9.2 clause that the deadline is *"ajustável conforme complexidade entregue"*. Backlog §6.1 carries the arithmetic.
@@ -55,6 +51,13 @@ Why the choice was effectively binary: the MoSCoW pass found **40 of 45 PBIs are
 - **Nothing is cut by default.** The five non-Must PBIs are in.
 - The cut order (PBI-20 → 36 → 16 → 30 → 19) is **contingency only**, if something overruns during execution. Never cut server-side pagination, the Strategy tests, optimistic locking, Docker Compose or CI.
 - **The README must open by declaring scope and schedule** (PBI-43): which scenario, what it cost, why. Nearly ten days against a nominal 3–4 is 2.5× — the clause authorizes it, but authorization is not the same as a favourable reading. Stating it up front beats letting the reviewer do the arithmetic unprompted.
+
+## Code style
+
+- Minimal comments: explain only the non-obvious "why", never the "what".
+- Prefer self-documenting code with clear names over line-by-line comments.
+
+Language-specific refinements live in the app files — `apps/api/CLAUDE.md` scopes when Javadoc is warranted.
 
 ## Layout
 
