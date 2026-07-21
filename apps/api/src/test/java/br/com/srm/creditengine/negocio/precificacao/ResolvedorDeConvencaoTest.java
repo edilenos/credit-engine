@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -182,7 +183,7 @@ class ResolvedorDeConvencaoTest {
     class Registro {
 
         @Test
-        @DisplayName("as cinco convencoes deste PBI estao registradas por codigo")
+        @DisplayName("as convencoes de contagem estao todas registradas por codigo")
         void cincoConvencoesRegistradas() {
             assertThat(resolvedor.convencoesRegistradas()).contains(
                     ConvencaoContagem.ACT_30,
@@ -195,12 +196,31 @@ class ResolvedorDeConvencaoTest {
         @Test
         @DisplayName("codigo sem implementacao falha alto, nao cai em default silencioso")
         void codigoSemImplementacaoFalhaAlto() {
-            // BUS_252 existe no enum e so ganha implementacao no PBI-20.
-            assertThatThrownBy(() -> resolvedor.expoente(
-                    ConvencaoContagem.BUS_252, Periodicidade.ANUAL, OPERACAO, VENCIMENTO_46_DIAS))
+            // Resolvedor deliberadamente incompleto, montado a mao.
+            //
+            // A primeira versao deste teste pedia BUS_252, que na epoca estava
+            // no enum sem implementacao. Funcionou ate o PBI-20 implementar a
+            // convencao — e entao o teste passou a nao provar nada, porque a
+            // condicao que ele verificava tinha deixado de existir. Teste preso
+            // a um estado transitorio caduca sem avisar.
+            ResolvedorDeConvencao incompleto = new ResolvedorDeConvencao(
+                    List.of(new ConvencaoDeContagem() {
+                        @Override
+                        public ConvencaoContagem codigo() {
+                            return ConvencaoContagem.ACT_30;
+                        }
+
+                        @Override
+                        public BigDecimal calcularExpoente(LocalDate inicio, LocalDate vencimento) {
+                            return BigDecimal.ONE;
+                        }
+                    }));
+
+            assertThatThrownBy(() -> incompleto.expoente(
+                    ConvencaoContagem.ACT_365, Periodicidade.ANUAL, OPERACAO, VENCIMENTO_46_DIAS))
                     .as("expoente calculado pela convencao errada produz preco errado sem rastro")
                     .isInstanceOf(ConvencaoNaoImplementadaException.class)
-                    .hasMessageContaining("BUS_252");
+                    .hasMessageContaining("ACT_365");
         }
     }
 }
