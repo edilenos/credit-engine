@@ -1,6 +1,6 @@
 package br.com.srm.creditengine.negocio.cessao;
 
-import br.com.srm.creditengine.negocio.ExcecaoDeNegocio;
+import br.com.srm.creditengine.negocio.RecursoNaoEncontradoException;
 
 /**
  * O cedente informado nao existe no cadastro.
@@ -10,7 +10,7 @@ import br.com.srm.creditengine.negocio.ExcecaoDeNegocio;
  * referencia-lo. Nao encontra-lo e' o caso classico de 404 — o recurso apontado
  * nao existe.
  */
-public class CedenteNaoEncontradoException extends ExcecaoDeNegocio {
+public class CedenteNaoEncontradoException extends RecursoNaoEncontradoException {
 
     public CedenteNaoEncontradoException(String documento) {
         super("Cedente nao encontrado para o documento " + documento);
