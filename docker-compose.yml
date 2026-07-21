@@ -1,0 +1,41 @@
+# Orquestracao de desenvolvimento. Por enquanto so o banco (PBI-03).
+# A API e o frontend entram aqui no PBI-38, junto com os Dockerfiles.
+#
+# Uso:
+#   cp .env.example .env     # preencha DB_PASSWORD
+#   docker compose up -d db
+#
+# A chave 'version:' e' obsoleta no Compose v2 e foi omitida de proposito.
+
+services:
+  db:
+    image: postgres:17.5-alpine
+    container_name: credit-engine-db
+    restart: unless-stopped
+    environment:
+      # Sem valor default: se .env nao existir, o Compose falha com esta
+      # mensagem em vez de subir um banco com senha adivinhavel.
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD no .env (veja .env.example)}
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_DB: ${DB_NAME:-credit-engine}
+      # Acelera o initdb; irrelevante para producao, util no ciclo local.
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    ports:
+      # 55432 no host, de proposito fora da faixa 543x: nesta maquina um tunel SSH
+      # no WSL ocupa 5433 e 5434 em 127.0.0.1, e o bind mais especifico vence o
+      # 0.0.0.0 do Docker. Dentro da rede do Compose o servico segue na 5432.
+      - "${DB_PORT:-55432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # O -U/-d evitam falso positivo: pg_isready sem argumentos responde OK
+      # durante o initdb, antes de o banco da aplicacao existir.
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_NAME:-credit-engine}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  pgdata:
+    name: credit-engine-pgdata
