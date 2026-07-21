@@ -2,12 +2,15 @@ package br.com.srm.creditengine.negocio.liquidacao;
 
 import java.util.Optional;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.com.srm.creditengine.dominio.StatusOperacao;
 import br.com.srm.creditengine.negocio.auditoria.ServicoDeAuditoria;
 import br.com.srm.creditengine.negocio.cessao.OperacaoNaoEncontradaException;
+import br.com.srm.creditengine.negocio.observabilidade.MetricasDeNegocio;
 import br.com.srm.creditengine.persistencia.entidade.Liquidacao;
 import br.com.srm.creditengine.persistencia.entidade.Operacao;
 import br.com.srm.creditengine.persistencia.repositorio.LiquidacaoRepositorio;
@@ -48,13 +51,18 @@ public class ServicoDeLiquidacao {
     private final OperacaoRepositorio operacoes;
     private final LiquidacaoRepositorio liquidacoes;
     private final ServicoDeAuditoria auditoria;
+    private final MetricasDeNegocio metricas;
+
+    private static final Logger log = LoggerFactory.getLogger(ServicoDeLiquidacao.class);
 
     public ServicoDeLiquidacao(OperacaoRepositorio operacoes,
                                LiquidacaoRepositorio liquidacoes,
-                               ServicoDeAuditoria auditoria) {
+                               ServicoDeAuditoria auditoria,
+                               MetricasDeNegocio metricas) {
         this.operacoes = operacoes;
         this.liquidacoes = liquidacoes;
         this.auditoria = auditoria;
+        this.metricas = metricas;
     }
 
     /**
@@ -75,9 +83,11 @@ public class ServicoDeLiquidacao {
             Long jaLiquidada = existente.getOperacao().getId();
 
             if (!jaLiquidada.equals(operacaoId)) {
+                metricas.liquidacaoEmConflito();
                 throw ConflitoDeEstadoException.chaveEmUsoPorOutraOperacao(
                         chaveIdempotencia, jaLiquidada);
             }
+            metricas.liquidacaoRepetida();
             return ResultadoDaLiquidacao.repetida(existente);
         }
 
@@ -85,6 +95,7 @@ public class ServicoDeLiquidacao {
                 .orElseThrow(() -> new OperacaoNaoEncontradaException(operacaoId));
 
         if (!operacao.getStatus().permiteLiquidacao()) {
+            metricas.liquidacaoEmConflito();
             throw operacao.getStatus() == StatusOperacao.LIQUIDADA
                     ? ConflitoDeEstadoException.jaLiquidada(operacaoId)
                     : ConflitoDeEstadoException.statusNaoAdmiteLiquidacao(
@@ -109,6 +120,14 @@ public class ServicoDeLiquidacao {
         // violacao de UNIQUE, o evento cai junto. Trilha com liquidacao que o
         // banco recusou seria pior que trilha faltando.
         auditoria.registrarLiquidacao(registrada, liquidadoPor);
+        metricas.liquidacaoConcluida();
+
+        // Sem chave de idempotencia no log: e' identificador escolhido pelo
+        // cliente e, num sistema com autenticacao, quem a possui pode
+        // reapresentar o pedido. O valor liquidado tambem fica de fora — a
+        // trilha de auditoria ja o guarda, com o controle de acesso certo.
+        log.info("Operacao liquidada: operacao={} liquidacao={}",
+                operacao.getId(), registrada.getId());
 
         return ResultadoDaLiquidacao.nova(registrada);
     }
