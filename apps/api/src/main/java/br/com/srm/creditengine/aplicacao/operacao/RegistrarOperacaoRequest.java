@@ -47,6 +47,13 @@ public record RegistrarOperacaoRequest(
         @Pattern(regexp = "^[A-Z]{3}$", message = "moedaLiquidacao deve ser um codigo ISO 4217 com 3 letras maiusculas")
         String moedaLiquidacao,
 
+        // Obrigatorio porque trilha de auditoria cujo ator e' sempre uma
+        // constante nao audita nada. Viria da autenticacao num sistema com
+        // login — mesma situacao do liquidadoPor.
+        @NotBlank(message = "registradoPor e obrigatorio")
+        @Size(max = 80, message = "registradoPor aceita no maximo 80 caracteres")
+        String registradoPor,
+
         LocalDate dataOperacao) {
 
     /** Mesmo teto da simulacao: aqui o custo do lote grande inclui gravacao. */
@@ -62,7 +69,8 @@ public record RegistrarOperacaoRequest(
                 titulos.stream().map(TituloRequest::paraDominio).toList(),
                 moedaTitulo,
                 moedaLiquidacao,
-                dataOperacaoOuHoje());
+                dataOperacaoOuHoje(),
+                registradoPor);
     }
 
     /**

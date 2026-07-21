@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.com.srm.creditengine.dominio.StatusOperacao;
+import br.com.srm.creditengine.negocio.auditoria.ServicoDeAuditoria;
 import br.com.srm.creditengine.negocio.cessao.OperacaoNaoEncontradaException;
 import br.com.srm.creditengine.persistencia.entidade.Liquidacao;
 import br.com.srm.creditengine.persistencia.entidade.Operacao;
@@ -46,11 +47,14 @@ public class ServicoDeLiquidacao {
 
     private final OperacaoRepositorio operacoes;
     private final LiquidacaoRepositorio liquidacoes;
+    private final ServicoDeAuditoria auditoria;
 
     public ServicoDeLiquidacao(OperacaoRepositorio operacoes,
-                               LiquidacaoRepositorio liquidacoes) {
+                               LiquidacaoRepositorio liquidacoes,
+                               ServicoDeAuditoria auditoria) {
         this.operacoes = operacoes;
         this.liquidacoes = liquidacoes;
+        this.auditoria = auditoria;
     }
 
     /**
@@ -99,7 +103,14 @@ public class ServicoDeLiquidacao {
                 operacao.getTaxaCambio() != null ? operacao.getTaxaCambio().getCotacao() : null,
                 liquidadoPor);
 
-        return ResultadoDaLiquidacao.nova(liquidacoes.save(liquidacao));
+        Liquidacao registrada = liquidacoes.save(liquidacao);
+
+        // Mesma transacao: se o commit falhar por colisao de versao ou por
+        // violacao de UNIQUE, o evento cai junto. Trilha com liquidacao que o
+        // banco recusou seria pior que trilha faltando.
+        auditoria.registrarLiquidacao(registrada, liquidadoPor);
+
+        return ResultadoDaLiquidacao.nova(registrada);
     }
 
     /** Liquidacao de uma operacao, se houver. */

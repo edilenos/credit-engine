@@ -16,13 +16,18 @@ import java.util.List;
  * @param moedaTitulo      moeda em que os titulos estao denominados
  * @param moedaLiquidacao  moeda em que o fundo desembolsa
  * @param dataOperacao     data-base da precificacao
+ * @param registradoPor    quem registrou a cessao. Viria da autenticacao num
+ *                         sistema com login; e' obrigatorio porque trilha de
+ *                         auditoria cujo ator e' sempre uma constante nao
+ *                         audita nada
  */
 public record SolicitacaoDeCessao(
         String documentoCedente,
         List<TituloACeder> titulos,
         String moedaTitulo,
         String moedaLiquidacao,
-        LocalDate dataOperacao) {
+        LocalDate dataOperacao,
+        String registradoPor) {
 
     public SolicitacaoDeCessao {
         titulos = List.copyOf(titulos);

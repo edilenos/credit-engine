@@ -101,6 +101,7 @@ class ConcorrenciaNaLiquidacaoTest {
         HttpResponse<String> resposta = postar("/api/v1/operacoes", """
                 {
                   "documentoCedente": "%s",
+                  "registradoPor": "operador.teste",
                   "moedaTitulo": "BRL",
                   "moedaLiquidacao": "BRL",
                   "dataOperacao": "2026-07-20",
