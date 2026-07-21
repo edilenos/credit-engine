@@ -84,27 +84,25 @@ The root is deliberately near-empty: `README.md` (PBI-43) will be the project's 
 
 ## Current state
 
-Scaffolding on both sides plus a working API datasource. Effectively all of Stage 0 onward is still open. Per-app detail is in the two app files; repo-wide gaps:
+**Delivered — all 45 PBIs, tagged [`v1.0.0`](https://github.com/edilenos/credit-engine/releases/tag/v1.0.0).** 299 tests against a real Postgres, linear history, CI green.
 
-- No Docker Compose anywhere. No CI workflow.
-- No `README.md` — the original one-line stub was deleted; PBI-43 writes it from scratch.
-- No `AI_USAGE.md`.
+Everything the backlog planned exists: Docker Compose brings up the whole stack, CI runs lint *and* tests, `README.md` and `AI_USAGE.md` are written, and the C4 diagrams, acceptance criteria and performance analysis are in `docs/`.
 
-### Git state
+### Known open defects
 
-`HEAD` (`d85d829`) contains **only** the original one-line `README.md` stub. Everything else — both apps, the backlog, these context files — is staged in the index at the correct `apps/…` paths but not yet committed. The earlier mis-staging at old root-level paths has been resolved.
+Declared rather than hidden — full detail in [`docs/acceptance-criteria.md`](docs/acceptance-criteria.md) and `AI_USAGE.md` §3.9:
 
-Nothing has been committed for real yet, so **PBI-01 must land before the first commit**.
+| What | Where |
+|---|---|
+| `GET /api/v1/cambio/taxas` returns `500` — `LazyInitializationException` in `CotacaoResponse.de()` with `open-in-view: false` | `aplicacao/cambio` |
+| N+1 in batch pricing — `parametroVigenteEm` is called once per title, and the whole batch shares one `dataOperacao` | `negocio/precificacao/MotorDePrecificacao` |
+| No test runner on the frontend | `apps/frontend` |
 
-### ⚠️ Blocking issue — a real credential is staged
+### The credential incident
 
-`apps/api/src/main/resources/application.yaml:16` hardcodes the real local Postgres password as the *default* of `${DB_PASSWORD:…}`, duplicating the exact value the gitignored `application-local.yaml` exists to protect. The spec requires a **public** repository, so anything committed is published.
+The first `application.yaml` hardcoded the real Postgres password as the default of `${DB_PASSWORD:…}`, and this context file compounded it by asserting the file held no secrets. **Caught before the first commit; never entered history.** The write-up is `AI_USAGE.md` §3.1, and it is the entry the spec asks for.
 
-It is staged but not committed, so nothing has leaked. Before any commit: revert to an empty/placeholder default and rotate the password. This is PBI-01 and risk R5. Mechanics of the config layering are in `apps/api/CLAUDE.md`.
-
-This incident is the **first required entry in `AI_USAGE.md`** (PBI-06): AI-assisted code wrote the secret, and a project context file compounded it by asserting the file held no secrets. The spec explicitly asks for cases where AI produced insecure code and how it was corrected — this is one, and writing it up honestly is graded.
-
-> Once PBI-01 lands, replace this section with a one-line pointer to the `AI_USAGE.md` entry. This file ships in a public repo; a standing description of where the vulnerability was serves no purpose after the fix, and the honest narrative belongs in the deliverable the spec asked for.
+> This section used to carry a standing description of where the vulnerability was — which outlived the fix by 44 PBIs and pointed readers of a public repo at a hole that no longer existed. That staleness is itself the lesson: a context file that stops tracking reality becomes the same failure it documents.
 
 ## Both stacks are ahead of training data
 
