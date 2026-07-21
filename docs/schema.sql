@@ -60,7 +60,6 @@
 --   aplicado. E' artefato de round-trip do proprio pg_dump, nao divergencia
 --   de schema.
 -- =============================================================================
-
 --
 -- PostgreSQL database dump
 --
@@ -709,6 +708,20 @@ CREATE INDEX ix_evento_entidade ON public.evento_auditoria USING btree (entidade
 --
 
 CREATE INDEX ix_liquidacao_liquidado_em ON public.liquidacao USING btree (liquidado_em);
+
+
+--
+-- Name: ix_liquidacao_valor_desc; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_liquidacao_valor_desc ON public.liquidacao USING btree (valor_liquidado DESC, id DESC);
+
+
+--
+-- Name: INDEX ix_liquidacao_valor_desc; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON INDEX public.ix_liquidacao_valor_desc IS 'Ordenacao por valor no Extrato de Liquidacao sem filtro seletivo. Sem ele, LIMIT 20 sobre 100 mil linhas faz Parallel Seq Scan (~45 ms). Ver docs/performance.md.';
 
 
 --
