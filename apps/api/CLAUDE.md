@@ -19,14 +19,18 @@ JDK 21 is required and `JAVA_HOME` on this machine already points at it (`C:\dev
 
 **The app listens on 8081, not the Boot default 8080** — `server.port` is `${SERVER_PORT:8081}`, so override via the `SERVER_PORT` env var rather than editing the YAML. Anything talking to the API (frontend client, Swagger URLs, compose port mappings, smoke tests) must target 8081.
 
-**No linter is configured.** Spotless + Checkstyle are planned in PBI-39, wired to `verify`; CI must run lint *and* tests (PBI-40) because the spec grades both.
+**`./mvnw verify` is the command that matters** — it runs Spotless, Checkstyle and the full suite, which is exactly what CI and the pre-push hook execute. That identity is deliberate: a local command that differs from the pipeline is how people learn to ignore the local result. `./mvnw spotless:apply` fixes formatting.
+
+The lint config is deliberately lean, and the reasoning is in `pom.xml` and `checkstyle.xml`: `google-java-format` was **measured and rejected** — it would have rewritten 147 files and 19k lines.
 
 ## Code style
 - Javadoc only on public APIs/services.
 
 ## Current state
 
-`CreditEngineApplication`, the `contextLoads` test, Postgres and Flyway wired. No domain code, no migrations, no controllers, no entities.
+**Complete.** Pricing with both Strategy families, FX applied last, batch cession, settlement with three redundant defenses, audit trail, native-SQL report, global exception handling, OpenAPI, structured logs and business metrics. **299 tests**, five Flyway migrations.
+
+Two known defects are open and declared — see the root `CLAUDE.md`. The one that touches this subtree: **`GET /api/v1/cambio/taxas` returns `500`**, because `CotacaoResponse.de()` walks a LAZY `Moeda` after the transaction closed. Its tests pass because they are `@Transactional`, which keeps the session open for the whole test.
 
 `./mvnw test` runs **against a real Postgres 17.5**, not an embedded database. The database comes from Docker Compose (PBI-03, done): run `docker compose up -d db` from the repo root first, or the suite fails at `flywayInitializer` with a connection error.
 
@@ -41,12 +45,14 @@ This is ahead of most training data, which still shows the Boot 3 shape. Verify 
 - Autoconfiguration moved into per-feature packages — `org.springframework.boot.flyway.autoconfigure`, `org.springframework.boot.jdbc.autoconfigure`, `org.springframework.boot.webmvc.error` (the last matters for the global exception handler in PBI-31).
 - Jackson 3 is in use: `tools.jackson.databind`, not `com.fasterxml.jackson.databind`.
 
-**Two third-party libraries have unverified Boot 4.1 compatibility**, and both block graded deliverables. The backlog calls for a short spike in Stage 0, before writing API code:
+**Two third-party libraries were the open compatibility risks (R1, R2), and both are now settled by evidence** — no fallback was needed. What matters is *which line* of each:
 
-| Library | Blocks | Fallback if incompatible |
+| Library | Use | The trap |
 |---|---|---|
-| springdoc-openapi (risk R1) | PBI-33, OpenAPI/Swagger | Version a static OpenAPI contract, serve with an embedded UI. The graded artifact is the contract, not the library. |
-| Resilience4j (risk R2) | PBI-15, retry + circuit breaker | Hand-roll backoff retry and a simple breaker, document the choice. The graded artifact is the pattern. |
+| `springdoc-openapi` **3.0.x** | OpenAPI/Swagger | The 2.8.x line is Boot 3's. It resolves and compiles, then fails at autoconfiguration |
+| `resilience4j-spring-boot4` | Retry + circuit breaker | `-spring-boot3` exists at the same version. Same failure mode |
+
+Both verified against a running server, not assumed. `springdoc` 3.0.3 was built against Boot 4.0.5 and works on 4.1.0.
 
 ## Configuration and schema
 
@@ -54,7 +60,7 @@ This is ahead of most training data, which still shows the Boot 3 shape. Verify 
 
 Imported config outranks the importing document in Spring Boot, so the local file wins over the defaults; the import is `optional:`, so CI and Docker fall back to environment variables with the file absent.
 
-> ⚠️ **This is currently broken and blocks the first commit.** `src/main/resources/application.yaml:16` hardcodes the real password as the *default* of `${DB_PASSWORD:…}`. Fixing it is PBI-01. See the root `CLAUDE.md` for the full incident and why it is also the first required `AI_USAGE.md` entry.
+> The default is empty (`${DB_PASSWORD:}`) and must stay that way. An earlier version hardcoded the real password here; the incident is written up in `AI_USAGE.md` §3.1, and the pre-commit hook now scans every diff for credential patterns.
 
 Boot 4.1.0 has **no native `.env` support** (verified against the jar — there is no dotenv property source), which is why this uses `spring.config.import`.
 
