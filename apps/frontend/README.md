@@ -1,39 +1,99 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Frontend — SRM Credit Engine
 
-## Getting Started
+SPA em Next.js 16 / React 19 que consome a API de precificação e liquidação.
 
-Este projeto usa **pnpm** como gerenciador de pacotes (fixado em `packageManager` no `package.json`).
-Com Corepack habilitado (`corepack enable`), a versão correta é usada automaticamente.
+O README da raiz do repositório cobre o projeto inteiro; este documento trata só do frontend.
 
-Instale as dependências:
+## Como rodar
+
+O gerenciador é **pnpm**, fixado em `packageManager` no `package.json`. Com Corepack habilitado (`corepack enable`), a versão correta é usada automaticamente.
 
 ```bash
 pnpm install
+cp .env.example .env.local   # ajuste a URL da API se necessário
+pnpm dev                     # http://localhost:3000
 ```
 
-Depois, suba o servidor de desenvolvimento:
+A API precisa estar no ar em `http://localhost:8081` — **não** na 8080 padrão do Spring Boot. Instruções de como subi-la ficam no README da raiz.
 
-```bash
-pnpm dev
+| Comando | O que faz |
+|---|---|
+| `pnpm dev` | Servidor de desenvolvimento na porta 3000 |
+| `pnpm build` | Build de produção |
+| `pnpm lint` | ESLint (flat config) |
+
+### Configuração
+
+`NEXT_PUBLIC_API_URL` é obrigatória e **não tem valor padrão no código**. Um fallback para `http://localhost:8081` faria a aplicação funcionar na máquina de quem escreveu e falhar em qualquer outra, com o sintoma aparecendo longe da causa. Sem padrão, a configuração ausente se anuncia na primeira requisição, com mensagem dizendo o que fazer.
+
+## Arquitetura
+
+O enunciado avalia a separação entre apresentação e lógica de estado (§4.3). A regra que a sustenta é simples: **componente não busca dado**.
+
+```
+app/          rotas e layout (App Router)
+components/   apresentação pura — sem fetch, sem regra
+features/     hooks e estado por domínio (simulação, transações)
+services/     cliente HTTP, chamadas por domínio, erro e timeout
+types/        tipos espelhando os contratos da API
+lib/          utilitários transversais (formatação pt-BR)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+O fluxo é sempre no mesmo sentido:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+componente  →  hook (features/)  →  service  →  http-client  →  API
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Um componente que precise de dado recebe por prop ou consome um hook. Nenhum deles importa `http-client` diretamente, e é isso que mantém a apresentação testável sem rede.
 
-## Learn More
+### Tratamento de erro fica em um lugar só
 
-To learn more about Next.js, take a look at the following resources:
+`services/http-client.ts` é o único ponto que fala com a rede. Ele aplica timeout, converte qualquer falha em erro tipado e traduz status HTTP em mensagem exibível:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Situação | Tipo | O que a tela mostra |
+|---|---|---|
+| Regra de negócio recusou (422) | `ErroDaApi` | A mensagem de domínio da API, já em português |
+| Payload inválido (400) | `ErroDaApi` | Os campos inválidos, com `camposInvalidos` para marcar o formulário |
+| Falha interna (5xx) | `ErroDaApi` | Mensagem genérica — detalhe de erro interno não ajuda o operador e pode vazar estrutura |
+| Rede, CORS ou timeout | `ErroDeConexao` | Orientação acionável, não código de status |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Nenhuma mensagem carrega stacktrace ou status cru. A tradução acontece uma vez; repeti-la por tela garantiria que uma delas vazasse `Error 500` para a mesa.
 
-## Deploy on Vercel
+### Decimais chegam como número JSON
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+A API calcula em `BigDecimal`, mas o Jackson serializa como número JSON — verificado no corpo cru (`"valorPresente":96284.58`). `JSON.parse` transforma isso em `double`, então a precisão arbitrária do backend termina na borda HTTP.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Na prática isso é exato para exibição nesta aplicação: `double` guarda ~15 dígitos significativos e a coluna é `NUMERIC(19,2)`. A divergência só apareceria em valores acima da casa de 1e13.
+
+A consequência para o código é uma regra: **o cliente não faz aritmética com dinheiro**. Totais, deságios e conversões vêm calculados da API; aqui só se formata. Somar no navegador reintroduziria exatamente o erro que o backend teve o trabalho de evitar.
+
+### Sem biblioteca de estado global — decisão registrada
+
+O enunciado pede "Gerenciamento de Estado Global **(se necessário)**". O condicional é convite a decidir, não a ignorar.
+
+**Análise.** São duas telas, e elas não compartilham estado mutável:
+
+- o **Painel do Operador** tem estado efêmero de formulário, que morre com a tela;
+- o **Grid de Transações** tem estado de filtro e paginação, que pertence à URL — requisito do próprio grid, para o link ser compartilhável e sobreviver a reload;
+- o que sobra são dados de servidor (moedas, tipos de recebível), que é problema de *cache de server state*, não de client state.
+
+**Decisão: nenhuma biblioteca de estado global.** Estado de servidor resolvido no cliente HTTP ou em hook de fetch com cache; estado de UI local ao componente; estado de filtro na URL. Introduzir Redux ou Zustand aqui seria a violação de KISS que o §8.2 avalia — e a arquitetura ficaria com uma camada que não resolve problema nenhum deste sistema.
+
+**Gatilho de revisão:** uma terceira tela compartilhando estado mutável com as outras reabre a decisão. Se isso acontecer, o certo é reescrever esta seção, não contrariá-la em silêncio.
+
+## Versões à frente do material de treino
+
+Três pontos onde este projeto difere do que a maioria dos tutoriais mostra:
+
+- **Next.js 16** — `middleware` passou a se chamar **`proxy`** (arquivo `proxy.ts`). A funcionalidade é a mesma, o nome não.
+- **Tailwind CSS 4** — configuração é CSS-first. **Não existe `tailwind.config.js`**; tokens de tema vão em `@theme` dentro de `app/globals.css`, e o plugin PostCSS é `@tailwindcss/postcss`.
+- **ESLint flat config** — `eslint.config.mjs` com `defineConfig`, não `.eslintrc`.
+
+A documentação da versão instalada está em `node_modules/next/dist/docs/` e é a fonte a consultar antes de escrever código.
+
+## Convenções de apresentação
+
+- Moeda e data em **pt-BR**, com a moeda sempre indicada. A formatação é centralizada em `lib/format.ts`.
+- Datas da API são `LocalDate` (sem hora e sem fuso). A conversão para exibição é **textual** — `new Date("2026-09-04")` seria interpretada como UTC meia-noite e mostraria o dia anterior em qualquer fuso a oeste de Greenwich, o que inclui o Brasil inteiro.
+- Toda validação feita aqui existe também no servidor. O cliente não é fronteira de confiança, e o enunciado trata validação de entrada como requisito de segurança.
