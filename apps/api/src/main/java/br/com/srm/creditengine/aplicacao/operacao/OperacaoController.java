@@ -11,6 +11,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import br.com.srm.creditengine.negocio.cessao.ServicoDeCessao;
 import br.com.srm.creditengine.negocio.liquidacao.ResultadoDaLiquidacao;
 import br.com.srm.creditengine.negocio.liquidacao.ServicoDeLiquidacao;
@@ -26,6 +30,7 @@ import jakarta.validation.Valid;
  */
 @RestController
 @RequestMapping("/api/v1/operacoes")
+@Tag(name = "Operacoes", description = "Cessao de credito e liquidacao")
 public class OperacaoController {
 
     private final ServicoDeCessao cessao;
@@ -43,6 +48,13 @@ public class OperacaoController {
      * de fato — o {@code GET} abaixo. Location para endpoint inexistente e'
      * contrato quebrado.
      */
+    @Operation(summary = "Registra a cessao de um lote",
+            description = """
+                    Precifica o lote, congela os parametros aplicados e cria a operacao \
+                    como PENDENTE. Tudo em uma transacao: ou o lote inteiro entra, ou nada \
+                    entra — um titulo invalido derruba os demais.""")
+    @ApiResponse(responseCode = "201",
+            description = "Operacao criada. O Location aponta para o GET correspondente.")
     @PostMapping
     public ResponseEntity<OperacaoResponse> registrar(
             @Valid @RequestBody RegistrarOperacaoRequest requisicao,
@@ -75,6 +87,14 @@ public class OperacaoController {
      * {@code 409} no tratador global. Nenhum deles e' {@code 500}: liquidacao
      * concorrente e' cenario previsto, nao defeito.
      */
+    @Operation(summary = "Liquida a operacao",
+            description = """
+                    Marca a operacao como LIQUIDADA e grava o comprovante, em uma \n                    transacao. Idempotente: repetir a chave devolve o comprovante \n                    original com 200 em vez de 201, sem liquidar de novo.
+
+                    Chave ja usada em OUTRA operacao e colisao, nao repeticao, e \n                    responde 409.""")
+    @ApiResponse(responseCode = "201", description = "Liquidacao efetuada agora.")
+    @ApiResponse(responseCode = "200",
+            description = "A chave ja havia sido usada nesta operacao; corpo e o comprovante original.")
     @PostMapping("/{id}/liquidacao")
     public ResponseEntity<LiquidacaoResponse> liquidar(
             @PathVariable Long id,

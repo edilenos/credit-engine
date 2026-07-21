@@ -5,6 +5,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import br.com.srm.creditengine.negocio.precificacao.PrecificacaoDaOperacao;
 import br.com.srm.creditengine.negocio.precificacao.ServicoDeSimulacao;
 import br.com.srm.creditengine.negocio.precificacao.SolicitacaoDeSimulacao;
@@ -19,6 +23,7 @@ import jakarta.validation.Valid;
  */
 @RestController
 @RequestMapping("/api/v1/simulacoes")
+@Tag(name = "Simulacao", description = "Precificacao sem efeito colateral")
 public class SimulacaoController {
 
     private final ServicoDeSimulacao simulacao;
@@ -36,6 +41,18 @@ public class SimulacaoController {
      * nao {@code 201} — nenhum recurso passa a existir, entao nao ha
      * {@code Location} a devolver.
      */
+    @Operation(
+            summary = "Simula a precificacao de um lote",
+            description = """
+                    Precifica cada titulo e devolve o detalhamento item a item mais os \
+                    totais. **Nada e gravado** — nem operacao, nem cotacao, nem trilha de \
+                    auditoria.
+
+                    Usa POST, e nao GET, porque a entrada e um lote estruturado: nao cabe \
+                    em query string com qualquer higiene. Ainda assim responde 200 e nao \
+                    201, porque nenhum recurso passa a existir.""")
+    @ApiResponse(responseCode = "200",
+            description = "Lote precificado. Nenhum recurso foi criado, portanto sem Location.")
     @PostMapping
     public SimulacaoResponse simular(@Valid @RequestBody SimularRequest requisicao) {
         SolicitacaoDeSimulacao solicitacao = requisicao.paraDominio();
