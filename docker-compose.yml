@@ -1,8 +1,14 @@
-# Orquestracao de desenvolvimento. Por enquanto so o banco (PBI-03).
-# A API e o frontend entram aqui no PBI-38, junto com os Dockerfiles.
+# Stack completa: banco, API e frontend (PBI-38).
 #
 # Uso:
 #   cp .env.example .env     # preencha DB_PASSWORD
+#   docker compose up --build
+#
+#   frontend  http://localhost:3000
+#   API       http://localhost:8081
+#   Swagger   http://localhost:8081/swagger-ui.html
+#
+# Para desenvolver com API e frontend fora do container, subindo so o banco:
 #   docker compose up -d db
 #
 # A chave 'version:' e' obsoleta no Compose v2 e foi omitida de proposito.
@@ -35,6 +41,61 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
+
+  api:
+    build:
+      context: ./apps/api
+    container_name: credit-engine-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        # service_healthy, e nao service_started: o Flyway roda na subida e
+        # falharia contra um Postgres que aceitou a conexao TCP mas ainda esta
+        # no initdb.
+        condition: service_healthy
+    environment:
+      # Nome do servico e porta INTERNA (5432). O mapeamento 55432 e' so para
+      # o host — dentro da rede do Compose ele nao existe.
+      DB_URL: jdbc:postgresql://db:5432/${DB_NAME:-credit-engine}
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD no .env}
+      SERVER_PORT: 8081
+      # Origem do NAVEGADOR, nao do container: o CORS e' avaliado contra o
+      # cabecalho Origin que o browser envia.
+      APP_CORS_ORIGINS: ${FRONTEND_ORIGIN:-http://localhost:3000}
+      LOG_FORMATO: ${LOG_FORMATO:-ecs}
+      LOG_NIVEL: ${LOG_NIVEL:-INFO}
+    ports:
+      - "${API_PORT:-8081}:8081"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8081/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  frontend:
+    build:
+      context: ./apps/frontend
+      args:
+        # ARG e nao environment: NEXT_PUBLIC_* e' substituida em tempo de BUILD.
+        # Definir aqui em `environment` nao teria efeito nenhum — quando o
+        # container sobe, o valor ja esta dentro do bundle.
+        #
+        # E precisa ser alcancavel pelo NAVEGADOR. Quem chama a API e' o browser
+        # do operador; `http://api:8081` resolveria entre containers e daria
+        # erro de DNS na maquina dele.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8081}
+    container_name: credit-engine-frontend
+    restart: unless-stopped
+    depends_on:
+      api:
+        # Nao ha chamada de container para container — o browser e' que fala com
+        # a API. A dependencia existe para a ordem de subida ser previsivel e
+        # para o frontend nao ser anunciado antes de haver o que consumir.
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
 
 volumes:
   pgdata:

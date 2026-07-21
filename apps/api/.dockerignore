@@ -1,0 +1,17 @@
+# Contexto de build da API.
+#
+# Tudo que nao for necessario ao build fica de fora: reduz o contexto enviado
+# ao daemon e, mais importante, evita que credencial local entre na imagem por
+# descuido.
+
+target/
+.mvn/wrapper/maven-wrapper.jar
+
+# CREDENCIAL LOCAL. Este arquivo tem a senha real do Postgres de
+# desenvolvimento; dentro da imagem ela sobreviveria em uma camada mesmo que
+# um passo posterior a apagasse.
+src/main/resources/application-local.yaml
+
+*.md
+.gitignore
+.gitattributes

@@ -6,6 +6,23 @@ O README da raiz do repositório cobre o projeto inteiro; este documento trata s
 
 ## Como rodar
 
+### Em container, junto com a stack
+
+Da raiz do repositório, sem precisar de Node instalado:
+
+```bash
+cp .env.example .env
+docker compose up --build   # http://localhost:3000
+```
+
+A imagem usa a saída `standalone` do Next: o runtime leva o `server.js` gerado e o recorte de `node_modules` que a aplicação de fato usa, sem `pnpm install`. Os estáticos são copiados à mão porque o `standalone` os deixa de fora de propósito — sem isso a aplicação sobe sem CSS nem JS de cliente. Roda como usuário `credit`, não root.
+
+> ⚠️ **`NEXT_PUBLIC_API_URL` é de tempo de *build*, não de runtime.** Ela é substituída dentro do bundle quando a imagem é construída; defini-la no `environment` do Compose não tem efeito nenhum. Mudou? `docker compose up --build`.
+>
+> E o valor precisa ser alcançável pelo **navegador**. Quem chama a API é o browser do operador, então `http://api:8081` — que resolveria de container para container — daria erro de DNS na máquina dele. Por isso o padrão é a porta publicada no host.
+
+### Localmente
+
 O gerenciador é **pnpm**, fixado em `packageManager` no `package.json`. Com Corepack habilitado (`corepack enable`), a versão correta é usada automaticamente.
 
 ```bash

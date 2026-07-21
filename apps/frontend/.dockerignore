@@ -1,0 +1,19 @@
+# Contexto de build do frontend.
+#
+# node_modules fica de fora de proposito: a imagem instala as dependencias a
+# partir do lockfile, e copiar as do host levaria binarios compilados para a
+# plataforma errada.
+
+node_modules/
+.next/
+out/
+build/
+
+# Arquivos de ambiente. .env.local tem a configuracao da maquina do dev, e
+# NEXT_PUBLIC_* entra na imagem por ARG de build, nunca por arquivo copiado.
+.env
+.env.*
+!.env.example
+
+*.md
+.gitignore

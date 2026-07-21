@@ -19,7 +19,20 @@ O contrato documenta os códigos de erro (`400`, `404`, `409`, `413`, `422`, `50
 
 ## Como rodar
 
-O banco vem do Docker Compose, na raiz do repositório:
+### Stack completa em container
+
+Da raiz do repositório, sem precisar de Java instalado:
+
+```bash
+cp .env.example .env        # preencha DB_PASSWORD
+docker compose up --build   # db + api + frontend
+```
+
+A API sobe **depois** de o banco reportar saudável (`condition: service_healthy`) — o Flyway roda na subida e falharia contra um Postgres que aceitou a conexão TCP mas ainda está no `initdb`.
+
+A imagem é multi-stage: o build usa o wrapper Maven, o runtime leva **só JRE e o jar**. Sem Maven, sem código-fonte, sem `.m2` — além do tamanho, é redução de superfície, porque compilador dentro de container de produção é ferramenta à disposição de quem entrar nele. O processo roda como `credit`, não root.
+
+### Desenvolvimento, com a API fora do container
 
 ```bash
 docker compose up -d db     # Postgres 17.5 na porta 55432
