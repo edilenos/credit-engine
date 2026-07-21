@@ -3,6 +3,9 @@ package br.com.srm.creditengine.persistencia.entidade;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
+import org.hibernate.annotations.Generated;
+import org.hibernate.generator.EventType;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -45,6 +48,15 @@ public class Liquidacao extends EntidadeBase {
     @Column(name = "cotacao_aplicada", precision = 19, scale = 6)
     private BigDecimal cotacaoAplicada;
 
+    /**
+     * Preenchido pelo {@code DEFAULT now()} da coluna.
+     *
+     * <p>Sem {@code @Generated} o Hibernate nao le o valor de volta e a resposta
+     * do POST sai com {@code liquidadoEm: null} — mesma armadilha ja corrigida
+     * em {@code Operacao.criadoEm}. Num comprovante de liquidacao, o horario
+     * ausente e' pior que cosmetico.
+     */
+    @Generated(event = EventType.INSERT)
     @Column(name = "liquidado_em", nullable = false, insertable = false, updatable = false)
     private OffsetDateTime liquidadoEm;
 

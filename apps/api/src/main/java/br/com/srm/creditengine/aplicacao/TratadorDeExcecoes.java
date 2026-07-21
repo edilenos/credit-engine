@@ -3,6 +3,8 @@ package br.com.srm.creditengine.aplicacao;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -14,6 +16,8 @@ import br.com.srm.creditengine.negocio.cambio.CotacaoNaoEncontradaException;
 import br.com.srm.creditengine.negocio.cambio.MoedaDesconhecidaException;
 import br.com.srm.creditengine.negocio.cessao.CedenteNaoEncontradoException;
 import br.com.srm.creditengine.negocio.cessao.OperacaoNaoEncontradaException;
+import br.com.srm.creditengine.negocio.liquidacao.ConflitoDeEstadoException;
+import br.com.srm.creditengine.negocio.liquidacao.LiquidacaoNaoEncontradaException;
 
 /**
  * Tratamento global de excecoes.
@@ -45,7 +49,8 @@ public class TratadorDeExcecoes {
             CotacaoIndisponivelException.class,
             CotacaoNaoEncontradaException.class,
             CedenteNaoEncontradoException.class,
-            OperacaoNaoEncontradaException.class
+            OperacaoNaoEncontradaException.class,
+            LiquidacaoNaoEncontradaException.class
     })
     public ProblemDetail naoEncontrado(RuntimeException excecao) {
         ProblemDetail problema = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, excecao.getMessage());
@@ -65,6 +70,46 @@ public class TratadorDeExcecoes {
         ProblemDetail problema = ProblemDetail.forStatusAndDetail(
                 HttpStatus.UNPROCESSABLE_ENTITY, excecao.getMessage());
         problema.setTitle("Regra de negocio violada");
+        return problema;
+    }
+
+    /**
+     * O estado atual do recurso nao admite a operacao pedida.
+     *
+     * <p>Precede o tratamento generico de {@code ExcecaoDeNegocio} por ser mais
+     * especifico. 409 e nao 422 porque o pedido esta correto — so nao cabe
+     * agora, e o cliente resolve relendo o recurso, nao corrigindo o payload.
+     */
+    @ExceptionHandler(ConflitoDeEstadoException.class)
+    public ProblemDetail conflitoDeEstado(ConflitoDeEstadoException excecao) {
+        ProblemDetail problema = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT, excecao.getMessage());
+        problema.setTitle("Conflito de estado");
+        return problema;
+    }
+
+    /**
+     * Duas transacoes disputaram o mesmo recurso e uma perdeu.
+     *
+     * <p>Sao os conflitos que acontecem no <b>commit</b>, depois que o servico
+     * ja retornou: colisao de {@code @Version} e violacao de {@code UNIQUE}.
+     * Nenhum servico consegue captura-los, e sem este tratamento os dois
+     * virariam {@code 500} — o que faria liquidacao concorrente, que e' cenario
+     * previsto e correto, parecer defeito do sistema.
+     *
+     * <p>A mensagem e' deliberadamente generica: o detalhe do
+     * {@code DataIntegrityViolationException} traz nome de constraint e de
+     * tabela, e resposta de erro nao e' lugar para expor schema.
+     */
+    @ExceptionHandler({
+            OptimisticLockingFailureException.class,
+            DataIntegrityViolationException.class
+    })
+    public ProblemDetail conflitoDeConcorrencia(Exception excecao) {
+        ProblemDetail problema = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT,
+                "A operacao foi alterada por outra requisicao. Releia o recurso e tente novamente.");
+        problema.setTitle("Conflito de concorrencia");
         return problema;
     }
 

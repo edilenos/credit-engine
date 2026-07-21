@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import br.com.srm.creditengine.negocio.cessao.ServicoDeCessao;
+import br.com.srm.creditengine.negocio.liquidacao.ResultadoDaLiquidacao;
+import br.com.srm.creditengine.negocio.liquidacao.ServicoDeLiquidacao;
 import br.com.srm.creditengine.persistencia.entidade.Operacao;
 import jakarta.validation.Valid;
 
@@ -27,9 +29,11 @@ import jakarta.validation.Valid;
 public class OperacaoController {
 
     private final ServicoDeCessao cessao;
+    private final ServicoDeLiquidacao liquidacao;
 
-    public OperacaoController(ServicoDeCessao cessao) {
+    public OperacaoController(ServicoDeCessao cessao, ServicoDeLiquidacao liquidacao) {
         this.cessao = cessao;
+        this.liquidacao = liquidacao;
     }
 
     /**
@@ -56,5 +60,45 @@ public class OperacaoController {
     @GetMapping("/{id}")
     public OperacaoResponse porId(@PathVariable Long id) {
         return OperacaoResponse.de(cessao.porId(id));
+    }
+
+    /**
+     * Liquida a operacao.
+     *
+     * <p>{@code 201} quando a liquidacao acontece agora; {@code 200} quando a
+     * chave ja tinha sido usada nesta operacao e o corpo e' o comprovante
+     * original. Os dois devolvem o mesmo conteudo — e' o que idempotencia
+     * significa — e o status distingue o que de fato ocorreu, sem obrigar o
+     * cliente a inspecionar o corpo para descobrir.
+     *
+     * <p>Conflito de estado, colisao de versao e violacao de UNIQUE viram
+     * {@code 409} no tratador global. Nenhum deles e' {@code 500}: liquidacao
+     * concorrente e' cenario previsto, nao defeito.
+     */
+    @PostMapping("/{id}/liquidacao")
+    public ResponseEntity<LiquidacaoResponse> liquidar(
+            @PathVariable Long id,
+            @Valid @RequestBody LiquidarRequest requisicao,
+            UriComponentsBuilder uriBuilder) {
+
+        ResultadoDaLiquidacao resultado = liquidacao.liquidar(
+                id, requisicao.chaveIdempotencia(), requisicao.liquidadoPor());
+
+        LiquidacaoResponse corpo = LiquidacaoResponse.de(resultado.liquidacao());
+
+        if (resultado.replay()) {
+            return ResponseEntity.ok(corpo);
+        }
+
+        URI local = uriBuilder.path("/api/v1/operacoes/{id}/liquidacao")
+                .buildAndExpand(id)
+                .toUri();
+
+        return ResponseEntity.created(local).body(corpo);
+    }
+
+    @GetMapping("/{id}/liquidacao")
+    public LiquidacaoResponse liquidacaoDa(@PathVariable Long id) {
+        return LiquidacaoResponse.de(liquidacao.porOperacao(id));
     }
 }
