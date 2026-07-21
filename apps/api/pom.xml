@@ -35,6 +35,17 @@
 			compila — falha so na autoconfiguracao, em runtime.
 		-->
 		<resilience4j.version>2.4.0</resilience4j.version>
+		<!--
+			BigDecimal.pow() so aceita expoente int, e quatro das seis convencoes
+			de contagem produzem expoente fracionario — e' o caso normal, nao a
+			excecao. Esta biblioteca faz potenciacao com expoente decimal em
+			precisao arbitraria e deterministica.
+
+			A alternativa seria Math.pow com double: erro relativo na casa de
+			1e-16, numericamente irrelevante, mas indefensavel sob um criterio de
+			avaliacao chamado "precisao decimal". Ver docs/backlog.md, PBI-21.
+		-->
+		<big-math.version>2.3.2</big-math.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -56,6 +67,11 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-aspectj</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>ch.obermuhlner</groupId>
+			<artifactId>big-math</artifactId>
+			<version>${big-math.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
