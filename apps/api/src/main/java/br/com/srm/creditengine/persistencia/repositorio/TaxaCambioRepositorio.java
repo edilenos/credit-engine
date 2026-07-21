@@ -7,6 +7,7 @@ import java.util.Optional;
 import org.springframework.data.domain.Limit;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -24,6 +25,27 @@ import br.com.srm.creditengine.persistencia.entidade.TaxaCambio;
 public interface TaxaCambioRepositorio extends JpaRepository<TaxaCambio, Long> {
 
     /**
+     * Toda consulta aqui traz {@code moedaOrigem} e {@code moedaDestino}
+     * carregadas, e isso <b>nao e' otimizacao</b>: e' requisito de corretude.
+     *
+     * <p>As duas associacoes sao LAZY, {@code open-in-view} esta desligado, e
+     * {@code CotacaoResponse.de()} le o codigo das duas. Sem o fetch, a sessao
+     * ja fechou quando o mapeamento roda e o endpoint responde 500.
+     *
+     * <p>O defeito existiu de verdade, do PBI-25 ate depois da v1.0.0, e passou
+     * despercebido porque {@code CambioControllerTest} e' {@code @Transactional}
+     * — ali a sessao fica aberta a requisicao inteira e o mapeamento funciona.
+     * Quem cobre isso agora e' {@code CambioForaDaTransacaoTest}, sem transacao.
+     *
+     * <p>{@code JOIN FETCH} e' seguro com paginacao aqui porque as duas
+     * associacoes sao {@code @ManyToOne}: elas nao multiplicam linhas, entao o
+     * Hibernate nao precisa paginar em memoria.
+     */
+    @Override
+    @EntityGraph(attributePaths = {"moedaOrigem", "moedaDestino"})
+    Optional<TaxaCambio> findById(Long id);
+
+    /**
      * O desempate por {@code id DESC} nao e detalhe: duas linhas podem
      * compartilhar a mesma vigencia quando uma cotacao e corrigida, e sem ele a
      * escolha entre elas seria indefinida. Em modelo append-only, corrigir e
@@ -31,6 +53,8 @@ public interface TaxaCambioRepositorio extends JpaRepository<TaxaCambio, Long> {
      */
     @Query("""
             SELECT t FROM TaxaCambio t
+             JOIN FETCH t.moedaOrigem
+             JOIN FETCH t.moedaDestino
              WHERE t.moedaOrigem.codigo = :origem
                AND t.moedaDestino.codigo = :destino
                AND t.vigenciaInicio <= :momento
@@ -49,6 +73,8 @@ public interface TaxaCambioRepositorio extends JpaRepository<TaxaCambio, Long> {
     /** Historico completo do par, do mais recente para o mais antigo. */
     @Query("""
             SELECT t FROM TaxaCambio t
+             JOIN FETCH t.moedaOrigem
+             JOIN FETCH t.moedaDestino
              WHERE t.moedaOrigem.codigo = :origem
                AND t.moedaDestino.codigo = :destino
              ORDER BY t.vigenciaInicio DESC, t.id DESC
@@ -69,6 +95,8 @@ public interface TaxaCambioRepositorio extends JpaRepository<TaxaCambio, Long> {
      */
     @Query("""
             SELECT t FROM TaxaCambio t
+             JOIN FETCH t.moedaOrigem
+             JOIN FETCH t.moedaDestino
              WHERE t.moedaOrigem.codigo = :origem
                AND t.moedaDestino.codigo = :destino
             """)
