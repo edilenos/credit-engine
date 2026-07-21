@@ -1,40 +1,40 @@
-package br.com.srm.creditengine.aplicacao.simulacao;
+package br.com.srm.creditengine.aplicacao.operacao;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
-import br.com.srm.creditengine.negocio.precificacao.SolicitacaoDeSimulacao;
+import br.com.srm.creditengine.negocio.cessao.SolicitacaoDeCessao;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
- * Payload de simulacao.
+ * Payload de registro de cessao.
  *
  * <p>Validacao ESTRUTURAL apenas — presenca, formato, escala, tamanho do lote.
- * Se o tipo existe, se o vencimento e' posterior a operacao e se ha cotacao
- * para o par sao regras de dominio, e ficam no servico: valem para qualquer
- * chamador, inclusive o registro de cessao do PBI-26, que nao passa por este
- * DTO.
+ * Existencia de cedente, tipo e moeda, e viabilidade do prazo, sao regras de
+ * dominio e ficam no servico.
  *
- * @param titulos          lote a precificar
+ * @param documentoCedente CNPJ do cedente, so digitos
+ * @param titulos          lote a ceder
  * @param moedaTitulo      moeda dos titulos
- * @param moedaLiquidacao  moeda do desembolso; igual a do titulo em operacao
- *                         de moeda unica
+ * @param moedaLiquidacao  moeda do desembolso
  * @param dataOperacao     data-base; ausente significa hoje
  */
-public record SimularRequest(
+public record RegistrarOperacaoRequest(
+
+        @NotBlank(message = "documentoCedente e obrigatorio")
+        @Pattern(regexp = "^\\d{14}$", message = "documentoCedente deve ter 14 digitos")
+        String documentoCedente,
 
         // Sem @NotEmpty: lote vazio e' recusado pelo dominio, com
-        // LoteVazioException, e responde 422 — igual ao registro de cessao. Com
-        // @NotEmpty aqui, a excecao de dominio virava codigo morto no caminho
-        // HTTP, e os dois endpoints respondiam status diferentes para o mesmo
-        // erro. O teto continua estrutural (400): "grande demais" e' propriedade
-        // do payload, nao do negocio.
+        // LoteVazioException, e responde 422. O teto continua estrutural (400),
+        // porque "grande demais" e' propriedade do payload, nao do negocio.
         @NotNull(message = "titulos e obrigatorio")
         @Size(max = LOTE_MAXIMO, message = "lote limitado a " + LOTE_MAXIMO + " recebiveis")
         List<@Valid TituloRequest> titulos,
@@ -49,22 +49,16 @@ public record SimularRequest(
 
         LocalDate dataOperacao) {
 
-    /**
-     * Teto do lote.
-     *
-     * <p>O enunciado trata validacao de entrada como requisito de seguranca
-     * (§5.2). Endpoint de calculo sem teto e' amplificador: um POST de 50 MB
-     * vira meio milhao de potenciacoes decimais em precisao arbitraria.
-     */
+    /** Mesmo teto da simulacao: aqui o custo do lote grande inclui gravacao. */
     public static final int LOTE_MAXIMO = 500;
 
-    /** Data ausente significa hoje — o caso comum da mesa. */
     public LocalDate dataOperacaoOuHoje() {
         return dataOperacao != null ? dataOperacao : LocalDate.now();
     }
 
-    public SolicitacaoDeSimulacao paraDominio() {
-        return new SolicitacaoDeSimulacao(
+    public SolicitacaoDeCessao paraDominio() {
+        return new SolicitacaoDeCessao(
+                documentoCedente,
                 titulos.stream().map(TituloRequest::paraDominio).toList(),
                 moedaTitulo,
                 moedaLiquidacao,
@@ -74,9 +68,11 @@ public record SimularRequest(
     /**
      * Um recebivel do lote.
      *
-     * @param tipoRecebivel  codigo do produto, conferido contra o cadastro
-     * @param valorFace      valor nominal, na escala da moeda
-     * @param dataVencimento quando o sacado paga
+     * @param tipoRecebivel    codigo do produto
+     * @param numeroDocumento  identificacao do titulo no cedente
+     * @param documentoSacado  CPF (11) ou CNPJ (14) de quem deve
+     * @param valorFace        valor nominal
+     * @param dataVencimento   quando o sacado paga
      */
     public record TituloRequest(
 
@@ -84,6 +80,18 @@ public record SimularRequest(
             @Pattern(regexp = "^[A-Z0-9_]{1,40}$",
                     message = "tipoRecebivel aceita letras maiusculas, digitos e underscore")
             String tipoRecebivel,
+
+            @NotBlank(message = "numeroDocumento e obrigatorio")
+            @Size(max = 50, message = "numeroDocumento aceita no maximo 50 caracteres")
+            String numeroDocumento,
+
+            @NotBlank(message = "documentoSacado e obrigatorio")
+            // Os parenteses nao sao estilo: sem eles a alternacao ligaria
+            // "^\d{11}" com "\d{14}$" e aceitaria qualquer coisa comecando com
+            // 11 digitos, inclusive um documento de 30.
+            @Pattern(regexp = "^(\\d{11}|\\d{14})$",
+                    message = "documentoSacado deve ter 11 digitos (CPF) ou 14 (CNPJ)")
+            String documentoSacado,
 
             @NotNull(message = "valorFace e obrigatorio")
             @DecimalMin(value = "0.01", message = "valorFace deve ser positivo")
@@ -94,9 +102,9 @@ public record SimularRequest(
             @NotNull(message = "dataVencimento e obrigatoria")
             LocalDate dataVencimento) {
 
-        private SolicitacaoDeSimulacao.TituloASimular paraDominio() {
-            return new SolicitacaoDeSimulacao.TituloASimular(
-                    tipoRecebivel, valorFace, dataVencimento);
+        private SolicitacaoDeCessao.TituloACeder paraDominio() {
+            return new SolicitacaoDeCessao.TituloACeder(
+                    tipoRecebivel, numeroDocumento, documentoSacado, valorFace, dataVencimento);
         }
     }
 }

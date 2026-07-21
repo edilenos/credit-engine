@@ -86,8 +86,8 @@ public class MotorDePrecificacao {
         BigDecimal valorPresente = CalculadoraDeValorPresente.descontar(
                 contexto.valorFace(), taxaBase.add(spread), expoente);
 
-        return new PrecificacaoDoTitulo(
-                contexto.valorFace(), valorPresente, taxaBase, spread, convencao, expoente);
+        return new PrecificacaoDoTitulo(contexto.valorFace(), valorPresente,
+                parametro, taxaBase, spread, convencao, expoente);
     }
 
     /**

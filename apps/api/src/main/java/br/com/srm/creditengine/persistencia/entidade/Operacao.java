@@ -6,6 +6,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import org.hibernate.annotations.Generated;
+import org.hibernate.generator.EventType;
+
 import br.com.srm.creditengine.dominio.StatusOperacao;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -77,6 +80,16 @@ public class Operacao extends EntidadeBase {
     @Column(name = "version", nullable = false)
     private Long version;
 
+    /**
+     * Preenchido pelo {@code DEFAULT now()} da coluna.
+     *
+     * <p>O {@code @Generated} nao e' decorativo: sem ele o Hibernate nunca le o
+     * valor de volta, e a resposta do POST sai com {@code criadoEm: null} para
+     * uma linha que tem timestamp no banco. O GET seguinte mostra o valor
+     * certo, entao a divergencia so aparece comparando as duas respostas — foi
+     * assim que apareceu aqui.
+     */
+    @Generated(event = EventType.INSERT)
     @Column(name = "criado_em", nullable = false, insertable = false, updatable = false)
     private OffsetDateTime criadoEm;
 

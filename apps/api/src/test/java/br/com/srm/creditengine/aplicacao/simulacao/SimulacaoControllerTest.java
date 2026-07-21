@@ -229,18 +229,6 @@ class SimulacaoControllerTest {
     class PayloadMalformado {
 
         @Test
-        @DisplayName("lote vazio")
-        void loteVazio() throws Exception {
-            mvc.perform(post("/api/v1/simulacoes")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content("""
-                                    {"moedaTitulo":"BRL","moedaLiquidacao":"BRL","titulos":[]}
-                                    """))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.campos.titulos").exists());
-        }
-
-        @Test
         @DisplayName("valor de face zero")
         void valorDeFaceZero() throws Exception {
             mvc.perform(post("/api/v1/simulacoes")
@@ -283,6 +271,20 @@ class SimulacaoControllerTest {
     @Nested
     @DisplayName("Payload valido que viola regra devolve 422")
     class RegraViolada {
+
+        @Test
+        @DisplayName("lote vazio e recusa do dominio, nao do formato")
+        void loteVazio() throws Exception {
+            // 422 e nao 400: a lista existe e esta bem formada. "Comprar nada"
+            // e' pedido sintaticamente valido e sem sentido de negocio — mesma
+            // resposta que o registro de cessao da (PBI-27).
+            mvc.perform(post("/api/v1/simulacoes")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"moedaTitulo":"BRL","moedaLiquidacao":"BRL","titulos":[]}
+                                    """))
+                    .andExpect(status().isUnprocessableEntity());
+        }
 
         @Test
         @DisplayName("tipo de recebivel nao cadastrado")
