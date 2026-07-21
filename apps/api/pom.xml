@@ -28,11 +28,34 @@
 	</scm>
 	<properties>
 		<java.version>21</java.version>
+		<!--
+			Resilience4j nao e' gerenciado pelo BOM do Spring Boot, entao a versao
+			e' explicita. ATENCAO ao artefato: existem resilience4j-spring-boot3 e
+			-spring-boot4 na mesma versao 2.4.0, e o errado resolve, baixa e
+			compila — falha so na autoconfiguracao, em runtime.
+		-->
+		<resilience4j.version>2.4.0</resilience4j.version>
 	</properties>
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-actuator</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>io.github.resilience4j</groupId>
+			<artifactId>resilience4j-spring-boot4</artifactId>
+			<version>${resilience4j.version}</version>
+		</dependency>
+		<!--
+			As anotacoes do Resilience4j sao aspectos: sem AOP no classpath elas
+			viram no-op silencioso. Nao vem transitivo do artefato acima.
+
+			ATENCAO: no Boot 4 o starter chama-se spring-boot-starter-ASPECTJ.
+			O spring-boot-starter-aop do Boot 3 nao existe mais no BOM.
+		-->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-aspectj</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

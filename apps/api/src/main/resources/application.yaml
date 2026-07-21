@@ -39,3 +39,42 @@ spring:
       pageable:
         default-page-size: 20
         max-page-size: 100
+
+# Provedor externo de cotacao. Mockado neste desafio: a URL padrao aponta para
+# um host inexistente de proposito, e' o que torna o circuit breaker e o
+# fallback observaveis logo apos subir o sistema.
+cambio:
+  provedor:
+    url-base: ${COTACAO_URL_BASE:http://provedor-de-cotacao.invalido}
+    caminho: /cotacoes/{origem}/{destino}
+    # Chamada externa sem timeout transforma lentidao alheia em
+    # indisponibilidade propria. O default do JDK e' esperar para sempre.
+    timeout-conexao: 2s
+    timeout-leitura: 3s
+
+resilience4j:
+  retry:
+    instances:
+      provedorDeCotacao:
+        max-attempts: 3
+        wait-duration: 200ms
+        # Backoff exponencial: 200ms, 400ms, 800ms. Repetir no mesmo ritmo
+        # contra um servico em recuperacao so ajuda a mante-lo caido.
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2
+        retry-exceptions:
+          - br.com.srm.creditengine.integracao.cotacao.ProvedorIndisponivelException
+  circuitbreaker:
+    instances:
+      provedorDeCotacao:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        # Sem minimo, uma unica falha na primeira chamada abriria o circuito.
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        register-health-indicator: true
+        record-exceptions:
+          - br.com.srm.creditengine.integracao.cotacao.ProvedorIndisponivelException

@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import br.com.srm.creditengine.negocio.cambio.ServicoDeCambio;
+import br.com.srm.creditengine.negocio.cambio.ServicoDeSincronizacaoDeCambio;
 import br.com.srm.creditengine.persistencia.entidade.TaxaCambio;
 import jakarta.validation.Valid;
 
@@ -37,9 +38,11 @@ import jakarta.validation.Valid;
 public class CambioController {
 
     private final ServicoDeCambio cambio;
+    private final ServicoDeSincronizacaoDeCambio sincronizacao;
 
-    public CambioController(ServicoDeCambio cambio) {
+    public CambioController(ServicoDeCambio cambio, ServicoDeSincronizacaoDeCambio sincronizacao) {
         this.cambio = cambio;
+        this.sincronizacao = sincronizacao;
     }
 
     /**
@@ -103,5 +106,21 @@ public class CambioController {
     @GetMapping("/{id}")
     public CotacaoResponse porId(@PathVariable Long id) {
         return CotacaoResponse.de(cambio.porId(id));
+    }
+
+    /**
+     * Sincroniza a cotacao do par com o provedor externo (mockado).
+     *
+     * <p>Responde {@code 200} mesmo quando o provedor falha: nesse caso o corpo
+     * traz {@code degradado: true} e a ultima cotacao conhecida. Devolver 5xx
+     * seria enganoso — a requisicao foi atendida, so que com dado do historico.
+     *
+     * <p>Se nao houver nenhuma cotacao anterior para o par, ai sim ha falha de
+     * verdade e a resposta e' {@code 404}: nao existe o que degradar.
+     */
+    @PostMapping("/sincronizacao")
+    public SincronizacaoResponse sincronizar(@RequestParam String origem,
+                                             @RequestParam String destino) {
+        return SincronizacaoResponse.de(sincronizacao.sincronizar(origem, destino));
     }
 }
