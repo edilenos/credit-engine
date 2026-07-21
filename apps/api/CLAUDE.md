@@ -21,6 +21,9 @@ JDK 21 is required and `JAVA_HOME` on this machine already points at it (`C:\dev
 
 **No linter is configured.** Spotless + Checkstyle are planned in PBI-39, wired to `verify`; CI must run lint *and* tests (PBI-40) because the spec grades both.
 
+## Code style
+- Javadoc only on public APIs/services.
+
 ## Current state
 
 `CreditEngineApplication`, the `contextLoads` test, Postgres and Flyway wired. No domain code, no migrations, no controllers, no entities.
