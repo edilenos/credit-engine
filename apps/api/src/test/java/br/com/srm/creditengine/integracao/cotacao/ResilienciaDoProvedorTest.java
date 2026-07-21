@@ -128,4 +128,46 @@ class ResilienciaDoProvedorTest {
 
         assertThat(circuito.getState()).isEqualTo(CircuitBreaker.State.CLOSED);
     }
+
+    // ------------------------------------------------------------ recuperacao
+    //
+    // Circuito que abre e nunca fecha e pior que circuito nenhum: a degradacao
+    // vira permanente e so um restart resolve. Ate o PBI-16 nada cobria isso.
+
+    @Test
+    @DisplayName("provedor recuperado: o circuito volta a fechar apos as chamadas de teste")
+    void circuitoFechaQuandoOProvedorVolta() {
+        when(cliente.buscar(anyString(), anyString())).thenReturn(new BigDecimal("0.185000"));
+
+        circuito.transitionToOpenState();
+        circuito.transitionToHalfOpenState();
+
+        // permitted-number-of-calls-in-half-open-state = 3
+        for (int i = 0; i < 3; i++) {
+            provedor.cotacaoAtual("BRL", "USD");
+        }
+
+        assertThat(circuito.getState())
+                .as("sem esta transicao, a degradacao seria permanente ate reiniciar o processo")
+                .isEqualTo(CircuitBreaker.State.CLOSED);
+    }
+
+    @Test
+    @DisplayName("provedor ainda fora: a chamada de teste reabre o circuito")
+    void circuitoReabreSeAFalhaPersiste() {
+        when(cliente.buscar(anyString(), anyString())).thenThrow(falha());
+
+        circuito.transitionToOpenState();
+        circuito.transitionToHalfOpenState();
+
+        try {
+            provedor.cotacaoAtual("BRL", "USD");
+        } catch (ProvedorIndisponivelException ignorada) {
+            // esperado: a chamada de teste tambem falha
+        }
+
+        assertThat(circuito.getState())
+                .as("meio-aberto que falha volta a abrir, em vez de deixar passar tudo")
+                .isEqualTo(CircuitBreaker.State.OPEN);
+    }
 }
