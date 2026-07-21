@@ -76,12 +76,12 @@ class MapeamentoEntidadesTest {
 
     private Operacao operacaoEmMoedaUnica() {
         Operacao operacao = new Operacao(cedente, brl, brl, null,
-                new BigDecimal("100000.00"), new BigDecimal("96284.52"), new BigDecimal("96284.52"));
+                new BigDecimal("100000.00"), new BigDecimal("96284.58"), new BigDecimal("96284.58"));
         operacao.adicionar(new Recebivel(tipo, parametro, "DUP-001", "11222333000181",
                 new BigDecimal("100000.00"), LocalDate.now().plusDays(46),
                 ConvencaoContagem.ACT_30, new BigDecimal("1.5333333333"),
                 new BigDecimal("0.010000"), new BigDecimal("0.015000"),
-                new BigDecimal("96284.52")));
+                new BigDecimal("96284.58")));
         return operacao;
     }
 
@@ -134,8 +134,8 @@ class MapeamentoEntidadesTest {
         Operacao lida = operacoes.findWithRecebiveisById(salva.getId()).orElseThrow();
 
         assertThat(lida.getValorFaceTotal()).isEqualByComparingTo(new BigDecimal("100000.00"));
-        assertThat(lida.getValorPresenteTotal()).isEqualByComparingTo(new BigDecimal("96284.52"));
-        assertThat(lida.getDesagio()).isEqualByComparingTo(new BigDecimal("3715.48"));
+        assertThat(lida.getValorPresenteTotal()).isEqualByComparingTo(new BigDecimal("96284.58"));
+        assertThat(lida.getDesagio()).isEqualByComparingTo(new BigDecimal("3715.42"));
         assertThat(lida.getStatus()).isEqualTo(StatusOperacao.PENDENTE);
         assertThat(lida.isCrossCurrency()).isFalse();
         assertThat(lida.getRecebiveis()).hasSize(1);
@@ -221,10 +221,10 @@ class MapeamentoEntidadesTest {
     void liquidacaoEhUnicaPorOperacao() {
         Operacao operacao = operacoes.saveAndFlush(operacaoEmMoedaUnica());
         liquidacoes.saveAndFlush(new Liquidacao(operacao, "chave-a",
-                new BigDecimal("96284.52"), null, "operador.teste"));
+                new BigDecimal("96284.58"), null, "operador.teste"));
 
         Liquidacao duplicada = new Liquidacao(operacao, "chave-b",
-                new BigDecimal("96284.52"), null, "operador.teste");
+                new BigDecimal("96284.58"), null, "operador.teste");
 
         assertThatThrownBy(() -> liquidacoes.saveAndFlush(duplicada))
                 .isInstanceOf(DataIntegrityViolationException.class);
@@ -235,7 +235,7 @@ class MapeamentoEntidadesTest {
     void chaveDeIdempotenciaLocalizaALiquidacao() {
         Operacao operacao = operacoes.saveAndFlush(operacaoEmMoedaUnica());
         liquidacoes.saveAndFlush(new Liquidacao(operacao, "chave-unica",
-                new BigDecimal("96284.52"), null, "operador.teste"));
+                new BigDecimal("96284.58"), null, "operador.teste"));
         em.clear();
 
         assertThat(liquidacoes.findByChaveIdempotencia("chave-unica"))
@@ -251,12 +251,12 @@ class MapeamentoEntidadesTest {
         TaxaCambio cotacao = cambios.vigenteEm("BRL", "USD", OffsetDateTime.now()).orElseThrow();
 
         Operacao operacao = new Operacao(cedente, brl, usd, cotacao,
-                new BigDecimal("100000.00"), new BigDecimal("96284.52"), new BigDecimal("17812.64"));
+                new BigDecimal("100000.00"), new BigDecimal("96284.58"), new BigDecimal("17812.65"));
         operacao.adicionar(new Recebivel(tipo, parametro, "DUP-002", "11222333000181",
                 new BigDecimal("100000.00"), LocalDate.now().plusDays(46),
                 ConvencaoContagem.ACT_30, new BigDecimal("1.5333333333"),
                 new BigDecimal("0.010000"), new BigDecimal("0.015000"),
-                new BigDecimal("96284.52")));
+                new BigDecimal("96284.58")));
 
         Operacao salva = operacoes.saveAndFlush(operacao);
         em.clear();
@@ -267,6 +267,6 @@ class MapeamentoEntidadesTest {
         assertThat(lida.getTaxaCambio()).isNotNull();
         assertThat(lida.getValorLiquidacao())
                 .as("valor na moeda de liquidacao, apos a conversao")
-                .isEqualByComparingTo(new BigDecimal("17812.64"));
+                .isEqualByComparingTo(new BigDecimal("17812.65"));
     }
 }

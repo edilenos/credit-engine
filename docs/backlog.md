@@ -956,13 +956,13 @@ BigDecimal vp       = valorFace.divide(fator, ESCALA_MOEDA, HALF_EVEN);
 - **(b)** `Math.pow` com `double` — erro relativo ~1e-16, numericamente irrelevante, mas indefensável em auditoria e bandeira vermelha visível num critério de avaliação que se chama "precisão decimal". `Math.pow` ainda pode usar intrínsecos de plataforma; só `StrictMath` garante reprodutibilidade bit a bit.
 - **(c)** implementar `exp(y·ln(x))` à mão em `BigDecimal` — é o que a big-math faz. Escrever biblioteca de numérica em 3-4 dias é onde bugs sutis moram.
 
-> **Por que não arredondar o prazo para meses inteiros:** não é simplificação técnica, é mudança de preço. Título de R$ 100.000 a 2,5% a.m. com 46 dias de prazo: expoente exato 1,5333 → VP 96.284,52; arredondado para 2 meses → 95.181,44 (**−1,10% do valor de face**); para 1 mês → 97.560,98 (**+1,28%**). O desvio é ~14 ordens de grandeza maior que o erro de ponto flutuante que tanto se teme, e a direção do arredondamento é decisão comercial (para cima favorece o fundo, para baixo o cedente). Se ainda assim for adotado, tem que ser declarado como política de precificação.
+> **Por que não arredondar o prazo para meses inteiros:** não é simplificação técnica, é mudança de preço. Título de R$ 100.000 a 2,5% a.m. com 46 dias: expoente exato 1,5333 → VP **96.284,58**; arredondado para 2 meses → 95.181,44 (desvio de −1.103,14, **1,10% do valor de face**); para 1 mês → 97.560,98 (+1.276,40, **1,28%**). O desvio é ~14 ordens de grandeza maior que o erro de ponto flutuante que tanto se teme, e a direção do arredondamento é decisão comercial (para cima favorece o fundo, para baixo o cedente). Se ainda assim for adotado, tem que ser declarado como política de precificação.
 
 ⚠️ **Segunda armadilha, na mesma expressão:** `divide()` lança `ArithmeticException` em dízima quando escala e `RoundingMode` não são informados (ver PBI-17). E `pow(int)` **sem** `MathContext` devolve resultado exato com escala explodindo — `1,025^24` tem 72 casas. Sempre a sobrecarga com `MathContext`.
 
 **Critérios de aceite:**
 - [ ] Face R$ 10.000, taxa base 1% a.m., spread 1,5% a.m., prazo 2 meses → resultado confere com cálculo manual na escala e arredondamento definidos
-- [ ] Face R$ 100.000, 2,5% a.m., 46 dias, `ACT_30` → 96.284,52, conferido à mão
+- [ ] Face R$ 100.000, 2,5% a.m., 46 dias, `ACT_30` → 96.284,58, conferido por cálculo independente
 - [ ] Duplicata e cheque com mesmos parâmetros produzem valores presentes diferentes
 - [ ] A mesma operação sob convenções diferentes produz valores diferentes, e o teste documenta o delta
 - [ ] Prazo zero devolve o valor de face sem deságio
