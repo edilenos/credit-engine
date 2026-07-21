@@ -47,6 +47,42 @@ Credenciais locais ficam em `application-local.yaml` (gitignorado), carregado po
 | `APP_CORS_ORIGINS` | `http://localhost:3000` | Origens do SPA. Lista explícita, **nunca** `*` |
 | `COTACAO_URL_BASE` | host inexistente | Provedor de cotação. O padrão inválido é proposital: torna o circuit breaker observável logo após subir |
 
+## Observabilidade
+
+Com a aplicação no ar:
+
+| Recurso | URL |
+|---|---|
+| Métricas Prometheus | http://localhost:8081/actuator/prometheus |
+| Health | http://localhost:8081/actuator/health |
+
+A exposição é **lista explícita**, nunca `*` — apenas `health`, `info`, `prometheus` e `metrics`. Com curinga entrariam `env` e `configprops`, que despejam a configuração efetiva incluindo valores vindos de variáveis de ambiente, e `heapdump`, que entrega a memória do processo.
+
+### Métricas de negócio
+
+| Métrica | Responde a |
+|---|---|
+| `creditengine_operacoes_registradas_total` | volume de cessões |
+| `creditengine_liquidacoes_total{resultado}` | `concluida`, `conflito`, `repeticao` |
+| `creditengine_precificacao_duracao_seconds` | latência do cálculo, com p50/p95/p99 |
+| `resilience4j_circuitbreaker_state` | saúde do provedor de cotação |
+
+**`conflito` e `repeticao` são contadores separados de propósito.** Conflito subindo significa duas mesas operando o mesmo título — incidente. Repetição subindo significa cliente com retry ativo — o sistema funcionando como desenhado. Somados, seriam indistinguíveis.
+
+Nenhuma métrica leva id, CNPJ ou chave de idempotência em tag: cada valor distinto cria uma série temporal, e cardinalidade ilimitada derruba o Prometheus além de publicar dado de cliente numa base menos protegida que o banco.
+
+O timer mede só a precificação efetiva. Lote recusado não entra — recusa medida como cálculo rápido puxaria o percentil para baixo e mascararia lentidão real.
+
+### Logs
+
+JSON no formato **ECS**, com o `correlationId` em toda linha da requisição, vindo do `MDC`. `LOG_FORMATO` aceita `ecs`, `gelf` ou `logstash`; `LOG_NIVEL` e `LOG_NIVEL_APP` ajustam verbosidade.
+
+O formato é **nativo do Boot 4** — `logstash-logback-encoder` seria dependência morta.
+
+Logs não carregam documento de cedente ou sacado, chave de idempotência, nem valores monetários. Quem guarda isso é a trilha de auditoria, no banco, com o controle de acesso certo.
+
+> Em teste, `/actuator/prometheus` só responde com **`@AutoConfigureMetrics`** — o Boot desliga a exportação de métricas por padrão nos testes. No Boot 4 essa anotação mudou de nome e de pacote: era `@AutoConfigureObservability`.
+
 ## Arquitetura
 
 Três camadas, com uma exceção deliberada.

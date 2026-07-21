@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import br.com.srm.creditengine.dominio.PrecisaoDecimal;
 import br.com.srm.creditengine.negocio.cambio.Conversao;
 import br.com.srm.creditengine.negocio.cambio.ServicoDeCambio;
+import br.com.srm.creditengine.negocio.observabilidade.MetricasDeNegocio;
 
 /**
  * Precifica um lote de recebiveis e aplica a conversao cambial <b>no final</b>.
@@ -46,10 +47,13 @@ public class PrecificadorDeOperacao {
 
     private final MotorDePrecificacao motor;
     private final ServicoDeCambio cambio;
+    private final MetricasDeNegocio metricas;
 
-    public PrecificadorDeOperacao(MotorDePrecificacao motor, ServicoDeCambio cambio) {
+    public PrecificadorDeOperacao(MotorDePrecificacao motor, ServicoDeCambio cambio,
+                                  MetricasDeNegocio metricas) {
         this.motor = motor;
         this.cambio = cambio;
+        this.metricas = metricas;
     }
 
     /**
@@ -69,9 +73,16 @@ public class PrecificadorDeOperacao {
             throw new LoteVazioException();
         }
 
+        // Cronometrado a mao em vez de @Timed: a anotacao mede a chamada
+        // inteira, incluindo as recusas, e um lote rejeitado no primeiro titulo
+        // entraria como precificacao rapida, puxando o percentil para baixo.
+        long inicio = System.nanoTime();
+
         List<PrecificacaoDoTitulo> precificados = titulos.stream()
                 .map(motor::precificar)
                 .toList();
+
+        metricas.registrarTempoDePrecificacao(System.nanoTime() - inicio);
 
         BigDecimal faceTotal = exigirRepresentavel("Valor de face total",
                 somar(precificados, PrecificacaoDoTitulo::valorFace));

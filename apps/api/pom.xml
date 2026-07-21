@@ -68,6 +68,20 @@
 			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
 			<version>${springdoc.version}</version>
 		</dependency>
+		<!--
+			O Actuator sozinho nao expoe /actuator/prometheus: o endpoint so
+			nasce quando ha um MeterRegistry do Prometheus no classpath. Versao
+			gerenciada pelo BOM do Spring Boot.
+
+			Log estruturado NAO precisa de dependencia: o Boot 4 traz os
+			formatos ecs, gelf e logstash embutidos. Adicionar
+			logstash-logback-encoder, que e o reflexo vindo do Boot 2/3, seria
+			dependencia morta.
+		-->
+		<dependency>
+			<groupId>io.micrometer</groupId>
+			<artifactId>micrometer-registry-prometheus</artifactId>
+		</dependency>
 		<dependency>
 			<groupId>io.github.resilience4j</groupId>
 			<artifactId>resilience4j-spring-boot4</artifactId>

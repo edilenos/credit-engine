@@ -5,10 +5,13 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.com.srm.creditengine.negocio.auditoria.ServicoDeAuditoria;
+import br.com.srm.creditengine.negocio.observabilidade.MetricasDeNegocio;
 import br.com.srm.creditengine.negocio.precificacao.ContextoDePrecificacao;
 import br.com.srm.creditengine.negocio.precificacao.PrecificacaoDaOperacao;
 import br.com.srm.creditengine.negocio.precificacao.PrecificacaoDoTitulo;
@@ -56,19 +59,24 @@ public class ServicoDeCessao {
     private final TipoRecebivelRepositorio tipos;
     private final MoedaRepositorio moedas;
     private final ServicoDeAuditoria auditoria;
+    private final MetricasDeNegocio metricas;
+
+    private static final Logger log = LoggerFactory.getLogger(ServicoDeCessao.class);
 
     public ServicoDeCessao(PrecificadorDeOperacao precificador,
                            OperacaoRepositorio operacoes,
                            CedenteRepositorio cedentes,
                            TipoRecebivelRepositorio tipos,
                            MoedaRepositorio moedas,
-                           ServicoDeAuditoria auditoria) {
+                           ServicoDeAuditoria auditoria,
+                           MetricasDeNegocio metricas) {
         this.precificador = precificador;
         this.operacoes = operacoes;
         this.cedentes = cedentes;
         this.tipos = tipos;
         this.moedas = moedas;
         this.auditoria = auditoria;
+        this.metricas = metricas;
     }
 
     /**
@@ -123,6 +131,14 @@ public class ServicoDeCessao {
         // some junto. Auditoria de cessao que nao existiu e' pior que auditoria
         // ausente.
         auditoria.registrarCessao(registrada, solicitacao.registradoPor());
+        metricas.operacaoRegistrada();
+
+        // Sem documento de cedente nem de sacado: log e' replicado para
+        // coletores com controle de acesso mais frouxo que o do banco, e a
+        // trilha de auditoria ja guarda quem foi, com a protecao certa.
+        log.info("Cessao registrada: operacao={} titulos={} moedaTitulo={} moedaLiquidacao={}",
+                registrada.getId(), registrada.getRecebiveis().size(),
+                solicitacao.moedaTitulo(), solicitacao.moedaLiquidacao());
 
         return registrada;
     }
