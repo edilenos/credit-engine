@@ -90,6 +90,33 @@ class ServicoDeCambioTest {
         }
 
         @Test
+        @DisplayName("na borda exata, a cotacao ja vale: a comparacao e <= e nao <")
+        void naBordaExataACotacaoJaVale() {
+            // Off-by-one classico: trocar <= por < faria a cotacao so passar a
+            // valer um instante depois do que foi contratado. Ate o PBI-16 nada
+            // testava a borda em si.
+            OffsetDateTime inicio = AGORA.minusDays(4);
+            cambio.registrar("BRL", "USD", new BigDecimal("0.777000"), inicio, FonteCotacao.MANUAL);
+
+            assertThat(cambio.cotacaoVigente("BRL", "USD", inicio).getCotacao())
+                    .as("consultar no exato instante da vigencia precisa devolver a cotacao")
+                    .isEqualByComparingTo(new BigDecimal("0.777000"));
+        }
+
+        @Test
+        @DisplayName("um instante antes da vigencia, a cotacao ainda nao vale")
+        void umInstanteAntesACotacaoAindaNaoVale() {
+            // A coluna e timestamptz, com precisao de microssegundo; 1 ms e o
+            // menor delta seguramente distinguivel apos ida e volta ao banco.
+            OffsetDateTime inicio = AGORA.minusDays(4);
+            cambio.registrar("BRL", "USD", new BigDecimal("0.888000"), inicio, FonteCotacao.MANUAL);
+
+            assertThat(cambio.cotacaoVigente("BRL", "USD", inicio.minusNanos(1_000_000)).getCotacao())
+                    .as("cotacao nao pode retroagir: quem consulta antes ve a anterior")
+                    .isNotEqualByComparingTo(new BigDecimal("0.888000"));
+        }
+
+        @Test
         @DisplayName("par sem cotacao ate a data levanta erro de negocio, nao devolve nulo")
         void parSemCotacaoLevantaErroDeNegocio() {
             OffsetDateTime antesDeQualquerCotacao = OffsetDateTime.parse("2000-01-01T00:00:00Z");
