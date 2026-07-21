@@ -47,6 +47,8 @@ A API precisa estar no ar em `http://localhost:8081` — **não** na 8080 padrã
 
 ## Arquitetura
 
+> Visão do sistema inteiro: [C4 — Contexto](../../docs/c4-context.md) e [C4 — Contêineres](../../docs/c4-container.md). O segundo explica por que o navegador chama a API direto, sem passar por este contêiner.
+
 O enunciado avalia a separação entre apresentação e lógica de estado (§4.3). A regra que a sustenta é simples: **componente não busca dado**.
 
 ```
