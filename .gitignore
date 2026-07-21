@@ -1,0 +1,49 @@
+# ---------------------------------------------------------------------------
+# .gitignore da raiz do monorepo.
+# Cada app tem o seu proprio (apps/api, apps/frontend) com as regras da stack.
+# Aqui ficam so as regras transversais: segredos, SO, IDE e artefatos.
+# ---------------------------------------------------------------------------
+
+### Segredos - NUNCA versionar (este repositorio e' publico) ###
+.env
+.env.*
+!.env.example
+**/application-local.yaml
+**/application-local.yml
+*.pem
+*.key
+*.p12
+*.jks
+
+### Sistema operacional ###
+.DS_Store
+Thumbs.db
+desktop.ini
+
+### IDEs e editores ###
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.fleet/
+*.swp
+*~
+
+### Artefatos de build ###
+# Redundante com os .gitignore dos apps, de proposito: protege diretorio novo
+# que venha a ser criado fora de apps/ sem .gitignore proprio.
+target/
+node_modules/
+.next/
+out/
+build/
+dist/
+
+### Logs e temporarios ###
+*.log
+tmp/
+.tmp/
+
+### Claude Code - permissoes locais, especificas da maquina ###
+**/.claude/settings.local.json

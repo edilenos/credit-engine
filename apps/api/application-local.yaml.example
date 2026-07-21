@@ -1,0 +1,20 @@
+# Exemplo de configuracao local. Copie para application-local.yaml e preencha:
+#
+#     cp application-local.yaml.example application-local.yaml
+#
+# O application-local.yaml e' ignorado pelo Git (apps/api/.gitignore) e NUNCA
+# deve ser versionado - este repositorio e' publico.
+#
+# Este arquivo e' opcional. A alternativa e' exportar as variaveis de ambiente
+# DB_URL, DB_USERNAME e DB_PASSWORD: o import em application.yaml e' 'optional:',
+# entao a aplicacao sobe sem este arquivo desde que as variaveis existam. E'
+# assim que CI e Docker Compose funcionam.
+#
+# Precedencia: config importado vence o documento que importa, entao os valores
+# daqui sobrescrevem os defaults de application.yaml.
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:55432/credit-engine
+    username: postgres
+    password: TROQUE_POR_SUA_SENHA_LOCAL
