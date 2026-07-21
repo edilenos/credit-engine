@@ -1736,7 +1736,10 @@ Um PBI está pronto quando:
 
 ## 10. Convenções de Git
 
-> **Fonte e destino:** esta seção é a fonte. O PBI-04 a **extrai** para `docs/git-workflow.md` logo na Etapa 0, porque a convenção precisa valer desde o primeiro commit. Depois da extração, aquele arquivo é o definitivo e esta seção não deve ser editada.
+> ## ✅ Extraída — esta seção está congelada
+> O PBI-04 extraiu este conteúdo para **[`git-workflow.md`](git-workflow.md)**, que é a versão definitiva e a única a ser editada. O que segue permanece como registro da decisão inicial.
+>
+> O documento extraído vai além desta seção: acrescenta o fluxo escolhido (GitHub Flow) com justificativa, procedimento de recuperação para merge commit indevido em `master` — que já foi necessário no PR #1 — e como a política é garantida via configuração do repositório e hooks.
 
 ### Convenção de nomenclatura de arquivos e branches
 

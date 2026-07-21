@@ -34,7 +34,7 @@ When picking up a task, find its PBI first — the branch name and commit messag
 |---|---|---|
 | §4 Modelo de domínio | PBI-07 | `docs/data-model.md` |
 | §8 Critérios não-funcionais | PBI-42 | `docs/acceptance-criteria.md` |
-| §10 Convenções de Git | PBI-04 | `docs/git-workflow.md` |
+| §10 Convenções de Git | PBI-04 | `docs/git-workflow.md` ✅ **já extraído** |
 
 Other planned docs: `docs/schema.sql` (PBI-12), `docs/c4-context.md` + `docs/c4-container.md` (PBI-41), `docs/performance.md` (PBI-36).
 
@@ -115,7 +115,7 @@ Each hallucination caught is meant to become an `AI_USAGE.md` entry. The spec gr
 
 ## Git conventions (graded)
 
-The spec evaluates git history as a first-class deliverable. Canonical version is backlog §10 until PBI-04 extracts it to `docs/git-workflow.md`.
+The spec evaluates git history as a first-class deliverable. **`docs/git-workflow.md` is the authoritative version** — extracted by PBI-04; backlog §10 is frozen. Edit the extracted file, not the backlog section. What follows is the summary; the full document also covers the recovery procedure for an accidental merge commit on `master` (already needed once, on PR #1) and how the policy is enforced via repo settings.
 
 - Never commit directly to `master` — branch per PBI. The backlog assigns the branch name; use it.
 - Branch naming: `<tipo>/<descricao-em-kebab-case>` in **Portuguese** (`feature/calculo-desagio`), types `feature|fix|chore|docs|ci|test|perf|refactor`.
