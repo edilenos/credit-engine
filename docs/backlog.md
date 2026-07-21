@@ -1662,7 +1662,9 @@ O README deve fechar declarando **sob quais condições a decisão mudaria**: lo
 
 Exigidos pela §5.2 do enunciado.
 
-> **Fonte e destino:** esta seção é a versão de planejamento, com metas ainda especuladas. O PBI-42 a **extrai** para `docs/acceptance-criteria.md`, substituindo as metas pelos números realmente medidos no PBI-36 e registrando o que foi ou não atendido. Depois da extração, aquele arquivo é o definitivo.
+> ✅ **Extraída — congelada.** A versão definitiva é [`docs/acceptance-criteria.md`](acceptance-criteria.md), criada pelo PBI-42 com os números medidos e o veredito de cada critério. Editar a seção abaixo não tem efeito; edite o arquivo extraído.
+>
+> A versão de planejamento fica preservada como registro do que era meta antes de existir código.
 
 ### 8.1 Usabilidade
 
