@@ -93,7 +93,29 @@ negocio/      regras, Strategies, serviços transacionais
 persistencia/ entidades JPA e repositórios
 ```
 
-O fluxo é `aplicacao → negocio → persistencia`. A camada de aplicação **não** alcança a persistência direto — exceto nas rotas de relatório, exceção que o §3.6 do enunciado autoriza e que o Extrato de Liquidação (PBI-35) vai exercer com SQL nativo em pacote próprio.
+O fluxo é `aplicacao → negocio → persistencia`. A camada de aplicação **não** alcança a persistência direto — com uma exceção, abaixo.
+
+### `relatorio/` — a exceção de duas camadas, deliberada e isolada
+
+O §3.6 do enunciado autoriza a rota de relatório a pular a camada de negócio, e o §3.5 trata como diferencial usar SQL otimizado no lugar do ORM. As duas decisões precisam ser **legíveis**, então o relatório inteiro — controller, consulta e projeções — mora em `relatorio/`, fisicamente separado de `negocio/` e `persistencia/`.
+
+```
+relatorio/
+  ExtratoDeLiquidacaoController  →  ConsultaDeExtrato  →  JdbcClient
+```
+
+Não há serviço no meio porque **não há regra a aplicar**: o extrato lê, projeta e pagina. Uma camada de repasse existiria no diagrama e não no comportamento. Há teste verificando que o controller depende só da consulta — se um serviço de domínio entrar aqui um dia, o teste falha e a decisão volta a ser discutida em vez de erodir em silêncio.
+
+**Por que não JPA.** A consulta cruza quatro tabelas e não corresponde a agregado nenhum. Com JPA seriam duas saídas ruins: uma entidade que existe só para o relatório, ou carregar `Liquidacao` e navegar associações LAZY linha a linha — o N+1 justamente sobre a consulta que o enunciado descreve como "grandes volumes".
+
+**Segurança da ordenação.** Filtros entram como parâmetro nomeado. A coluna de ordenação **não pode**: identificador não se vincula em SQL, `ORDER BY ?` não existe. Sobraria concatenar entrada de usuário — então ela vem de um enum, e valor fora da lista responde `422` em vez de cair num padrão silencioso.
+
+```
+GET /api/v1/relatorios/extrato-liquidacao?ordenarPor=x;%20DROP%20TABLE%20liquidacao
+→ 422 "Ordenacao invalida. Valores aceitos: LIQUIDADO_EM, VALOR_LIQUIDADO, CEDENTE, OPERACAO"
+```
+
+**Paginação.** `tamanho` é limitado a 100 — pedir `1000000` devolve 100, não a tabela inteira. `totalDeItens` é o total do filtro, não da página, e o `ORDER BY` desempata por `l.id` para que liquidações no mesmo instante não troquem de posição entre páginas.
 
 ### Duas famílias de Strategy
 
