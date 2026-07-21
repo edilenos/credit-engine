@@ -34,11 +34,11 @@ Not the Boot default 8080. The base URL comes from `NEXT_PUBLIC_API_URL`, read i
 
 ## Current state
 
-Boilerplate cleared, layers in place (PBI-25). `app/page.tsx` is a deliberately minimal landing — the Painel do Operador is PBI-26, and inventing UI here would only be thrown away.
+Layers in place (PBI-25) and the **Painel do Operador** working at `/` (PBI-26): form → debounce → `useSimulacao` → API, with the rate composition rendered, verified against a running API.
 
-Working: HTTP client with timeout and typed errors, `useSimulacao` hook, pt-BR formatting, `POST /api/v1/simulacoes` wired end to end and verified against a running API.
+Reference data for the selects comes from `GET /api/v1/cadastros/{tipos-recebivel,moedas}` — added in PBI-26 because no PBI had covered it, and hardcoding the list in the frontend would contradict the reason the spread lives in the DB.
 
-Still absent: any real screen, and **any test runner** — `pnpm build` and `pnpm lint` are the only automated checks on this side.
+> ⚠️ **There is still no test runner, and it is now a real gap.** `pnpm build` and `pnpm lint` are the only automated checks, and neither exercises behaviour. The debounce, the stale-response guard and the validation gate are all verified **only by reading the code** — no PBI in the backlog covers frontend tests. Money-input logic (`lib/moeda-digitada.ts`) was checked with a throwaway `node --experimental-strip-types` script, not a committed test.
 
 ## Architecture
 
