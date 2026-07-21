@@ -78,3 +78,12 @@ resilience4j:
         register-health-indicator: true
         record-exceptions:
           - br.com.srm.creditengine.integracao.cotacao.ProvedorIndisponivelException
+
+# Politica de precificacao por produto.
+precificacao:
+  cheque:
+    # Cheque tem horizonte: a Lei 7.357/85 fixa 30 dias para apresentacao na
+    # mesma praca e 60 fora dela, com prescricao 6 meses depois. Passado esse
+    # limite o titulo deixa de ser executavel, e antecipar contra ele nao e'
+    # operacao de credito. Parametro de politica, ajustavel pela mesa.
+    prazo-maximo-dias: 180
