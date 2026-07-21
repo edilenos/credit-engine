@@ -1,7 +1,6 @@
 package br.com.srm.creditengine.negocio.precificacao;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -23,15 +22,24 @@ import br.com.srm.creditengine.persistencia.entidade.TipoRecebivel;
 import br.com.srm.creditengine.persistencia.repositorio.TipoRecebivelRepositorio;
 
 /**
- * Strategy de spread por tipo de recebivel (PBI-18).
+ * Strategy de spread — o que so o contexto real pode provar (PBI-18, PBI-23).
  *
- * <p>O que estes testes precisam provar nao e' apenas "o spread sai certo" —
- * um {@code Map} passaria nisso. E' que as regras sao <b>diferentes entre si</b>
- * e que <b>um produto novo entra sem tocar em nada</b>.
+ * <p>As regras em si sao testadas sem Spring e sem banco em
+ * {@code EstrategiasDeSpreadTest}, onde rodam em milissegundos. Sobraram aqui
+ * duas perguntas que aquele teste nao alcanca, porque as duas dependem de
+ * infraestrutura de verdade:
+ *
+ * <ol>
+ *   <li>o <b>seed</b> carrega os spreads do enunciado — 1,5% e 2,5% a.m.? Um
+ *       teste unitario constroi o {@code TipoRecebivel} a mao e por isso nunca
+ *       veria uma migracao com o numero errado;
+ *   <li>a <b>descoberta por injecao</b> funciona — um produto novo entra so
+ *       criando a classe? So o container responde isso.
+ * </ol>
  */
 @SpringBootTest
 @Transactional
-@DisplayName("Strategy de spread")
+@DisplayName("Strategy de spread — integracao")
 class ResolvedorDeSpreadTest {
 
     private static final LocalDate HOJE = LocalDate.now();
@@ -49,64 +57,21 @@ class ResolvedorDeSpreadTest {
     }
 
     @Nested
-    @DisplayName("Selecao polimorfica")
-    class Selecao {
+    @DisplayName("O seed carrega os spreads do enunciado")
+    class SeedDeReferencia {
 
         @Test
-        @DisplayName("duplicata recebe o spread do enunciado: 1,5% a.m.")
+        @DisplayName("duplicata mercantil: 1,5% a.m.")
         void duplicataRecebeSpreadDoEnunciado() {
             assertThat(resolvedor.spreadPara(contexto(SpreadDeDuplicataMercantil.CODIGO, 46)))
+                    .as("valor vem da migracao V3, nao de um objeto montado no teste")
                     .isEqualByComparingTo(new BigDecimal("0.015000"));
         }
 
         @Test
-        @DisplayName("cheque recebe o spread do enunciado: 2,5% a.m.")
+        @DisplayName("cheque pre-datado: 2,5% a.m.")
         void chequeRecebeSpreadDoEnunciado() {
             assertThat(resolvedor.spreadPara(contexto(SpreadDeChequePreDatado.CODIGO, 46)))
-                    .isEqualByComparingTo(new BigDecimal("0.025000"));
-        }
-
-        @Test
-        @DisplayName("tipo sem regra levanta erro, nunca devolve spread zero")
-        void tipoSemRegraLevantaErro() {
-            TipoRecebivel semRegra = new TipoRecebivel(
-                    "CONTRATO_SEM_REGRA", "Contrato", new BigDecimal("0.030000"),
-                    Periodicidade.MENSAL, ConvencaoContagem.ACT_30);
-            ContextoDePrecificacao ctx = new ContextoDePrecificacao(
-                    semRegra, new BigDecimal("1000.00"), HOJE, HOJE.plusDays(30));
-
-            assertThatThrownBy(() -> resolvedor.spreadPara(ctx))
-                    .as("produto precificado com premio de risco nulo sai caro e nao deixa rastro")
-                    .isInstanceOf(EstrategiaDeSpreadNaoEncontradaException.class)
-                    .hasMessageContaining("CONTRATO_SEM_REGRA");
-        }
-    }
-
-    @Nested
-    @DisplayName("As regras sao diferentes de verdade")
-    class RegrasDiferentes {
-
-        @Test
-        @DisplayName("cheque recusa prazo alem do limite; duplicata aceita o mesmo prazo")
-        void chequeRecusaPrazoLongoQueDuplicataAceita() {
-            int prazoLongo = 400;
-
-            assertThatThrownBy(() -> resolvedor.spreadPara(
-                    contexto(SpreadDeChequePreDatado.CODIGO, prazoLongo)))
-                    .as("cheque tem horizonte de apresentacao e prescricao; passado ele, "
-                            + "antecipar nao e operacao de credito")
-                    .isInstanceOf(PrazoInviavelException.class);
-
-            assertThat(resolvedor.spreadPara(contexto(SpreadDeDuplicataMercantil.CODIGO, prazoLongo)))
-                    .as("credito de sacado nao tem horizonte: duplicata longa continua duplicata. "
-                            + "E aqui que se ve que nao e a mesma regra com dois numeros")
-                    .isEqualByComparingTo(new BigDecimal("0.015000"));
-        }
-
-        @Test
-        @DisplayName("cheque dentro do limite e precificado normalmente")
-        void chequeDentroDoLimiteEhPrecificado() {
-            assertThat(resolvedor.spreadPara(contexto(SpreadDeChequePreDatado.CODIGO, 179)))
                     .isEqualByComparingTo(new BigDecimal("0.025000"));
         }
     }
@@ -161,22 +126,6 @@ class ResolvedorDeSpreadTest {
             assertThat(resolvedor.quantidadeDeEstrategias())
                     .as("duas de producao mais a do teste, todas descobertas por injecao")
                     .isEqualTo(3);
-        }
-    }
-
-    @Nested
-    @DisplayName("Validacao do contexto")
-    class ValidacaoDoContexto {
-
-        @Test
-        @DisplayName("vencimento no passado nao chega a ser precificado")
-        void vencimentoNoPassadoNaoEhPrecificado() {
-            TipoRecebivel tipo = tipos.findByCodigo(SpreadDeDuplicataMercantil.CODIGO).orElseThrow();
-
-            assertThatThrownBy(() -> new ContextoDePrecificacao(
-                    tipo, new BigDecimal("1000.00"), HOJE, HOJE.minusDays(1)))
-                    .as("titulo ja vencido nao tem o que antecipar")
-                    .isInstanceOf(VencimentoNoPassadoException.class);
         }
     }
 }

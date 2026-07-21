@@ -1,12 +1,9 @@
 package br.com.srm.creditengine.negocio.precificacao;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
-import java.math.MathContext;
-import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 
@@ -19,15 +16,19 @@ import org.springframework.transaction.annotation.Transactional;
 
 import br.com.srm.creditengine.dominio.ConvencaoContagem;
 import br.com.srm.creditengine.dominio.Periodicidade;
-import br.com.srm.creditengine.dominio.PrecisaoDecimal;
 import br.com.srm.creditengine.persistencia.entidade.ParametroPrecificacao;
 import br.com.srm.creditengine.persistencia.entidade.TipoRecebivel;
 import br.com.srm.creditengine.persistencia.repositorio.TipoRecebivelRepositorio;
-import ch.obermuhlner.math.big.BigDecimalMath;
 import jakarta.persistence.EntityManager;
 
 /**
- * Calculo do valor presente (PBI-21).
+ * Composicao do motor de precificacao (PBI-21).
+ *
+ * <p>O motor <b>compoe</b>: busca o parametro vigente, resolve o spread, resolve
+ * o expoente e delega a conta. Este teste cobre a composicao, que so existe com
+ * banco e contexto. A aritmetica em si — precisao, bordas, determinismo — foi
+ * para {@code CalculadoraDeValorPresenteTest} no PBI-23, onde roda sem
+ * infraestrutura.
  *
  * <p>Os valores esperados vem de calculo independente, rodado fora da
  * aplicacao. O PBI-17 mostrou o custo de confiar em conta mental: o exemplo
@@ -176,72 +177,6 @@ class MotorDePrecificacaoTest {
                     .as("46 dias corridos contra 34 uteis: R$ %s de diferenca em R$ 100.000, "
                             + "so por escolher outra convencao", delta)
                     .isEqualByComparingTo(new BigDecimal("103.15"));
-        }
-    }
-
-    @Nested
-    @DisplayName("Precisao decimal")
-    class PrecisaoDecimalNoCalculo {
-
-        @Test
-        @DisplayName("divisao que gera dizima nao lanca ArithmeticException")
-        void dizimaNaoLanca() {
-            // 1/3 de 100.000 com fator dizimico: exatamente o caso que a
-            // sobrecarga BigDecimal.divide(BigDecimal) rejeita.
-            assertThatCode(() -> motor.precificar(contexto("DUPLICATA_MERCANTIL", "100000.00", 46)))
-                    .doesNotThrowAnyException();
-        }
-
-        @Test
-        @DisplayName("aumentar a precisao do contexto nao muda as duas casas finais")
-        void precisaoMaiorNaoMudaOResultado() {
-            BigDecimal base = new BigDecimal("1.025");
-            BigDecimal expoente = new BigDecimal("1.5333333333");
-            BigDecimal face = new BigDecimal("100000.00");
-
-            BigDecimal comPadrao = descontarCom(face, base, expoente, PrecisaoDecimal.CONTEXTO);
-            BigDecimal comDobro = descontarCom(face, base, expoente,
-                    new MathContext(68, RoundingMode.HALF_EVEN));
-
-            assertThat(comPadrao)
-                    .as("34 digitos ja dao folga sobre os 19 das colunas NUMERIC")
-                    .isEqualByComparingTo(comDobro);
-        }
-
-        private BigDecimal descontarCom(BigDecimal face, BigDecimal base,
-                                        BigDecimal expoente, MathContext mc) {
-            BigDecimal fator = BigDecimalMath.pow(base, expoente, mc);
-            return face.divide(fator, mc).setScale(2, RoundingMode.HALF_EVEN);
-        }
-
-        @Test
-        @DisplayName("expoente inteiro: big-math e pow(int) chegam ao mesmo numero")
-        void bigMathConfereComPowInt() {
-            // Validacao cruzada que o PBI-19 deixou pendente por falta da
-            // potenciacao. TAXA_DIARIA produz expoente inteiro, entao os dois
-            // caminhos precisam coincidir — se divergissem, um dos dois estaria
-            // errado e nao haveria como saber qual.
-            BigDecimal base = new BigDecimal("1.0005");
-
-            BigDecimal viaBigMath = BigDecimalMath.pow(
-                    base, new BigDecimal("46"), PrecisaoDecimal.CONTEXTO);
-            BigDecimal viaPowInt = base.pow(46, PrecisaoDecimal.CONTEXTO);
-
-            assertThat(viaBigMath.setScale(20, RoundingMode.HALF_EVEN))
-                    .isEqualByComparingTo(viaPowInt.setScale(20, RoundingMode.HALF_EVEN));
-        }
-
-        @Test
-        @DisplayName("mesma entrada produz mesma saida em execucoes repetidas")
-        void calculoEhDeterministico() {
-            var primeira = motor.precificar(contexto("DUPLICATA_MERCANTIL", "100000.00", 46));
-
-            for (int i = 0; i < 5; i++) {
-                assertThat(motor.precificar(contexto("DUPLICATA_MERCANTIL", "100000.00", 46))
-                        .valorPresente())
-                        .as("Math.pow com double nao garantiria isso entre plataformas")
-                        .isEqualByComparingTo(primeira.valorPresente());
-            }
         }
     }
 
