@@ -1,6 +1,7 @@
 package br.com.srm.creditengine.persistencia.repositorio;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Limit;
@@ -20,20 +21,36 @@ import br.com.srm.creditengine.persistencia.entidade.TaxaCambio;
  */
 public interface TaxaCambioRepositorio extends JpaRepository<TaxaCambio, Long> {
 
+    /**
+     * O desempate por {@code id DESC} nao e detalhe: duas linhas podem
+     * compartilhar a mesma vigencia quando uma cotacao e corrigida, e sem ele a
+     * escolha entre elas seria indefinida. Em modelo append-only, corrigir e
+     * acrescentar, e a ultima correcao e a que vale.
+     */
     @Query("""
             SELECT t FROM TaxaCambio t
              WHERE t.moedaOrigem.codigo = :origem
                AND t.moedaDestino.codigo = :destino
                AND t.vigenciaInicio <= :momento
-             ORDER BY t.vigenciaInicio DESC
+             ORDER BY t.vigenciaInicio DESC, t.id DESC
             """)
-    Optional<TaxaCambio> buscarVigente(@Param("origem") String origem,
-                                       @Param("destino") String destino,
-                                       @Param("momento") OffsetDateTime momento,
-                                       Limit limite);
+    List<TaxaCambio> buscarVigente(@Param("origem") String origem,
+                                   @Param("destino") String destino,
+                                   @Param("momento") OffsetDateTime momento,
+                                   Limit limite);
 
     /** Atalho para a consulta acima, ja limitada a uma linha. */
     default Optional<TaxaCambio> vigenteEm(String origem, String destino, OffsetDateTime momento) {
-        return buscarVigente(origem, destino, momento, Limit.of(1));
+        return buscarVigente(origem, destino, momento, Limit.of(1)).stream().findFirst();
     }
+
+    /** Historico completo do par, do mais recente para o mais antigo. */
+    @Query("""
+            SELECT t FROM TaxaCambio t
+             WHERE t.moedaOrigem.codigo = :origem
+               AND t.moedaDestino.codigo = :destino
+             ORDER BY t.vigenciaInicio DESC, t.id DESC
+            """)
+    List<TaxaCambio> historicoDoPar(@Param("origem") String origem,
+                                    @Param("destino") String destino);
 }
