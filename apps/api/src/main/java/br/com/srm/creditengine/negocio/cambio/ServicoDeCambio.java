@@ -5,6 +5,8 @@ import java.math.RoundingMode;
 import java.time.OffsetDateTime;
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -104,14 +106,23 @@ public class ServicoDeCambio {
     /**
      * Registra uma cotacao. Nao atualiza nada: acrescenta.
      *
-     * @throws MoedaDesconhecidaException  se algum dos codigos nao existir
+     * <p>As validacoes ficam aqui, e nao apenas no DTO da borda, porque o
+     * provedor externo (PBI-15) tambem chama este metodo sem passar por DTO
+     * nenhum. Invariante de dominio protegida so na camada web e' invariante
+     * que o primeiro chamador alternativo fura.
+     *
+     * @throws MoedaDesconhecidaException   se algum dos codigos nao existir
      * @throws ParDeMoedasInvalidoException se origem e destino coincidirem
+     * @throws CotacaoInvalidaException     se a cotacao nao for positiva
      */
     @Transactional
     public TaxaCambio registrar(String origem, String destino, BigDecimal cotacao,
                                 OffsetDateTime vigenciaInicio, FonteCotacao fonte) {
         if (origem.equals(destino)) {
             throw new ParDeMoedasInvalidoException(origem);
+        }
+        if (cotacao == null || cotacao.signum() <= 0) {
+            throw new CotacaoInvalidaException(cotacao);
         }
         Moeda moedaOrigem = buscarMoeda(origem);
         Moeda moedaDestino = buscarMoeda(destino);
@@ -123,6 +134,23 @@ public class ServicoDeCambio {
     @Transactional(readOnly = true)
     public List<TaxaCambio> historico(String origem, String destino) {
         return cotacoes.historicoDoPar(origem, destino);
+    }
+
+    /**
+     * Historico paginado. E' a forma que a API expoe: nenhuma resposta de
+     * colecao pode ser ilimitada, porque o par mais movimentado cresce sem
+     * teto num modelo append-only.
+     */
+    @Transactional(readOnly = true)
+    public Page<TaxaCambio> historico(String origem, String destino, Pageable pagina) {
+        return cotacoes.historicoDoPar(origem, destino, pagina);
+    }
+
+    /** Busca uma cotacao pelo identificador, para o {@code Location} do POST. */
+    @Transactional(readOnly = true)
+    public TaxaCambio porId(Long id) {
+        return cotacoes.findById(id)
+                .orElseThrow(() -> new CotacaoNaoEncontradaException(id));
     }
 
     private Moeda buscarMoeda(String codigo) {
