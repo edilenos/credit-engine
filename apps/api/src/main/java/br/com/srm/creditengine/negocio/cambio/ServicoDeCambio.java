@@ -1,7 +1,6 @@
 package br.com.srm.creditengine.negocio.cambio;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.OffsetDateTime;
 import java.util.List;
 
@@ -11,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.com.srm.creditengine.dominio.FonteCotacao;
+import br.com.srm.creditengine.dominio.PrecisaoDecimal;
 import br.com.srm.creditengine.persistencia.entidade.Moeda;
 import br.com.srm.creditengine.persistencia.entidade.TaxaCambio;
 import br.com.srm.creditengine.persistencia.repositorio.MoedaRepositorio;
@@ -86,19 +86,18 @@ public class ServicoDeCambio {
      * mas JPY usa 0 e KWD usa 3, e fixar {@code scale=2} quebraria na primeira
      * moeda nao centesimal.
      *
-     * <p>O modo e' {@link RoundingMode#HALF_EVEN}, arredondamento bancario: nao
-     * enviesa a soma de muitas conversoes para cima, ao contrario de HALF_UP. A
-     * politica de escala e arredondamento sera centralizada em um unico ponto
-     * no PBI-17; esta chamada passa a consumi-la de la.
+     * <p>O modo de arredondamento vem de {@link PrecisaoDecimal}, ponto unico da
+     * politica: HALF_EVEN, que nao enviesa a soma de muitas conversoes para um
+     * dos lados como HALF_UP faria.
      */
     @Transactional(readOnly = true)
     public Conversao converter(BigDecimal valor, String origem, String destino, OffsetDateTime momento) {
         TaxaCambio cotacao = cotacaoVigente(origem, destino, momento);
         int escalaDestino = cotacao.getMoedaDestino().getEscalaPadrao();
 
-        BigDecimal convertido = valor
-                .multiply(cotacao.getCotacao())
-                .setScale(escalaDestino, RoundingMode.HALF_EVEN);
+        BigDecimal convertido = PrecisaoDecimal.comoMoeda(
+                valor.multiply(cotacao.getCotacao(), PrecisaoDecimal.CONTEXTO),
+                escalaDestino);
 
         return new Conversao(convertido, cotacao);
     }

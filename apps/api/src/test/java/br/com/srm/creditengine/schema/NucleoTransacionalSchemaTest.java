@@ -86,7 +86,7 @@ class NucleoTransacionalSchemaTest {
     private void inserirLiquidacao(long operacaoId, String chave) {
         jdbc.sql("""
                 INSERT INTO liquidacao (operacao_id, chave_idempotencia, valor_liquidado, liquidado_por)
-                VALUES (:operacao, :chave, 96284.52, 'operador.teste')
+                VALUES (:operacao, :chave, 96284.58, 'operador.teste')
                 """)
                 .param("operacao", operacaoId).param("chave", chave)
                 .update();
@@ -105,7 +105,7 @@ class NucleoTransacionalSchemaTest {
     @Test
     @DisplayName("duas liquidacoes para a mesma operacao violam unicidade")
     void liquidacaoDuplicadaViolaUnicidade() {
-        long operacao = inserirOperacao("100000.00", "96284.52");
+        long operacao = inserirOperacao("100000.00", "96284.58");
         inserirLiquidacao(operacao, "chave-1");
 
         assertThatThrownBy(() -> inserirLiquidacao(operacao, "chave-2"))
@@ -116,7 +116,7 @@ class NucleoTransacionalSchemaTest {
     @Test
     @DisplayName("chave de idempotencia repetida viola unicidade")
     void chaveDeIdempotenciaRepetidaViolaUnicidade() {
-        long primeira = inserirOperacao("100000.00", "96284.52");
+        long primeira = inserirOperacao("100000.00", "96284.58");
         long segunda = inserirOperacao("200000.00", "190000.00");
         inserirLiquidacao(primeira, "mesma-chave");
 
@@ -128,7 +128,7 @@ class NucleoTransacionalSchemaTest {
     @Test
     @DisplayName("operacao nasce com version zero, base do optimistic locking")
     void operacaoNasceComVersionZero() {
-        long operacao = inserirOperacao("100000.00", "96284.52");
+        long operacao = inserirOperacao("100000.00", "96284.58");
 
         Long version = jdbc.sql("SELECT version FROM operacao WHERE id = :id")
                 .param("id", operacao).query(Long.class).single();
