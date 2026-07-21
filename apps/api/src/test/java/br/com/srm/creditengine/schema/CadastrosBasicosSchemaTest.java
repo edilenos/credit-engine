@@ -72,9 +72,9 @@ class CadastrosBasicosSchemaTest {
     @Test
     @DisplayName("codigo de moeda duplicado viola unicidade")
     void codigoDeMoedaDuplicadoViolaUnicidade() {
-        inserirMoeda("BRL", "Real", 2);
+        inserirMoeda("XTA", "Moeda de teste A", 2);
 
-        assertThatThrownBy(() -> inserirMoeda("BRL", "Real duplicado", 2))
+        assertThatThrownBy(() -> inserirMoeda("XTA", "Duplicada", 2))
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .hasMessageContaining("uk_moeda_codigo");
     }
@@ -114,10 +114,10 @@ class CadastrosBasicosSchemaTest {
     @Test
     @DisplayName("cotacao zero nao e' cotacao: viola CHECK")
     void cotacaoZeroViolaCheck() {
-        long brl = inserirMoeda("BRL", "Real", 2);
-        long usd = inserirMoeda("USD", "Dolar", 2);
+        long moedaA = inserirMoeda("XTA", "Moeda de teste A", 2);
+        long moedaB = inserirMoeda("XTB", "Moeda de teste B", 2);
 
-        assertThatThrownBy(() -> inserirCotacao(brl, usd, "0.000000"))
+        assertThatThrownBy(() -> inserirCotacao(moedaA, moedaB, "0.000000"))
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .hasMessageContaining("ck_taxa_cambio_cotacao");
     }
@@ -125,9 +125,9 @@ class CadastrosBasicosSchemaTest {
     @Test
     @DisplayName("cotacao de uma moeda para ela mesma viola CHECK")
     void cotacaoComParIgualViolaCheck() {
-        long brl = inserirMoeda("BRL", "Real", 2);
+        long moedaA = inserirMoeda("XTA", "Moeda de teste A", 2);
 
-        assertThatThrownBy(() -> inserirCotacao(brl, brl, "1.000000"))
+        assertThatThrownBy(() -> inserirCotacao(moedaA, moedaA, "1.000000"))
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .hasMessageContaining("ck_taxa_cambio_par_distinto");
     }

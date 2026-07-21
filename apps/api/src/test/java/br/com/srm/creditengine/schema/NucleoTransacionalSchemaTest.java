@@ -34,23 +34,23 @@ class NucleoTransacionalSchemaTest {
     @Autowired
     private JdbcClient jdbc;
 
-    private long brl;
-    private long usd;
+    private long moedaA;
+    private long moedaB;
     private long cedente;
     private long tipo;
     private long parametro;
 
     @BeforeEach
     void prepararCadastros() {
-        brl = inserirMoeda("BRL", "Real");
-        usd = inserirMoeda("USD", "Dolar");
+        moedaA = inserirMoeda("XTA", "Moeda de teste A");
+        moedaB = inserirMoeda("XTB", "Moeda de teste B");
         cedente = jdbc.sql("""
                 INSERT INTO cedente (documento, razao_social)
                 VALUES ('12345678000199', 'Cedente de Teste') RETURNING id
                 """).query(Long.class).single();
         tipo = jdbc.sql("""
                 INSERT INTO tipo_recebivel (codigo, nome, spread, periodicidade, convencao_contagem)
-                VALUES ('DUPLICATA_MERCANTIL', 'Duplicata', 0.015000, 'MENSAL', 'ACT_30')
+                VALUES ('TESTE_DUPLICATA', 'Duplicata de teste', 0.015000, 'MENSAL', 'ACT_30')
                 RETURNING id
                 """).query(Long.class).single();
         parametro = jdbc.sql("""
@@ -78,7 +78,7 @@ class NucleoTransacionalSchemaTest {
                         CAST(:presente AS NUMERIC), 'PENDENTE')
                 RETURNING id
                 """)
-                .param("cedente", cedente).param("moeda", brl)
+                .param("cedente", cedente).param("moeda", moedaA)
                 .param("face", face).param("presente", presente)
                 .query(Long.class).single();
     }
@@ -167,7 +167,7 @@ class NucleoTransacionalSchemaTest {
                                       valor_face_total, valor_presente_total, valor_liquidacao, status)
                 VALUES (:cedente, :moeda, :moeda, 100.00, 90.00, 90.00, 'EM_ANALISE')
                 """)
-                .param("cedente", cedente).param("moeda", brl).update())
+                .param("cedente", cedente).param("moeda", moedaA).update())
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .hasMessageContaining("ck_operacao_status");
     }
@@ -180,7 +180,7 @@ class NucleoTransacionalSchemaTest {
                                       valor_face_total, valor_presente_total, valor_liquidacao, status)
                 VALUES (:cedente, :titulo, :liquidacao, 100.00, 90.00, 18.00, 'PENDENTE')
                 """)
-                .param("cedente", cedente).param("titulo", brl).param("liquidacao", usd).update())
+                .param("cedente", cedente).param("titulo", moedaA).param("liquidacao", moedaB).update())
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .hasMessageContaining("ck_operacao_cambio_coerente");
     }
@@ -192,7 +192,7 @@ class NucleoTransacionalSchemaTest {
                 INSERT INTO taxa_cambio (moeda_origem_id, moeda_destino_id, cotacao, vigencia_inicio, fonte)
                 VALUES (:origem, :destino, 5.400000, :vigencia, 'MANUAL') RETURNING id
                 """)
-                .param("origem", brl).param("destino", usd)
+                .param("origem", moedaA).param("destino", moedaB)
                 .param("vigencia", OffsetDateTime.now())
                 .query(Long.class).single();
 
@@ -201,7 +201,7 @@ class NucleoTransacionalSchemaTest {
                                       valor_face_total, valor_presente_total, valor_liquidacao, status)
                 VALUES (:cedente, :moeda, :moeda, :cotacao, 100.00, 90.00, 90.00, 'PENDENTE')
                 """)
-                .param("cedente", cedente).param("moeda", brl).param("cotacao", cotacao).update())
+                .param("cedente", cedente).param("moeda", moedaA).param("cotacao", cotacao).update())
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .hasMessageContaining("ck_operacao_cambio_coerente");
     }
