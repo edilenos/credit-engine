@@ -98,7 +98,9 @@ Nenhuma tentativa de autenticação chegava ao container. Logo, a conexão ia pa
 
 ### 3.3 Alucinação de API por versão de framework
 
-Spring Boot 4 renomeou e repackageou coisas que praticamente todo material de treino ainda mostra do jeito do Boot 3. As armadilhas ativas neste projeto:
+Spring Boot 4 renomeou e repackageou coisas que praticamente todo material de treino ainda mostra do jeito do Boot 3. Next 16 tem as suas.
+
+**Estas eram as previsíveis**, listadas antes de escrever a primeira linha:
 
 | A IA tende a sugerir | O correto no Boot 4.1 |
 |---|---|
@@ -107,7 +109,28 @@ Spring Boot 4 renomeou e repackageou coisas que praticamente todo material de tr
 | `com.fasterxml.jackson.databind` | `tools.jackson.databind` (Jackson 3) |
 | Pacotes de autoconfiguração antigos | Reorganizados: `org.springframework.boot.flyway.autoconfigure`, `...webmvc.error` |
 
-**Mitigação adotada:** conferir contra o POM e os jars antes de escrever qualquer import, e registrar as armadilhas no `apps/api/CLAUDE.md` para que não voltem a cada sessão. O mesmo vale para Next.js 16, onde o scaffolding traz um `AGENTS.md` determinando a leitura de `node_modules/next/dist/docs/` antes de escrever código.
+**E estas apareceram durante a implementação** — todas custaram tempo real, e nenhuma dá erro de compilação óbvia:
+
+| Onde | A armadilha | Como apareceu |
+|---|---|---|
+| Boot 4 | `spring-boot-starter-aop` **não existe**; é `-aspectj` | Sem ele as anotações do Resilience4j viram **no-op silencioso** — compila, roda, não faz nada |
+| Boot 4 | `resilience4j-spring-boot3` e `-spring-boot4` coexistem na mesma versão | O errado **resolve, baixa e compila**; falha só na autoconfiguração |
+| Boot 4 | `@DataJpaTest` mudou de pacote | Erro de compilação — a versão barata |
+| Boot 4 | `TestRestTemplate` saiu para o módulo `spring-boot-resttestclient` **e** mudou de pacote | Nem está no classpath por padrão |
+| Boot 4 | `@AutoConfigureObservability` virou `@AutoConfigureMetrics`, em pacote novo | `/actuator/prometheus` respondia **404 no teste e 200 no servidor real** |
+| Boot 4 | `server.max-http-post-size` **deprecada em nível de erro**; o substituto vale só para form-urlencoded | Descoberto lendo os metadados de configuração, não a documentação |
+| springdoc | Linha **3.0.x** é a do Boot 4; a 2.8.x é do Boot 3 | Mesma armadilha do Resilience4j: resolve e falha na autoconfiguração |
+| Jackson 3 | As **anotações** seguem em `com.fasterxml.jackson.annotation`, mesmo com o databind em `tools.jackson` | Os dois pacotes convivem de propósito |
+| Next 16 | `middleware` virou **`proxy`** (`proxy.ts`) | Só apareceu porque o `AGENTS.md` obriga a ler os docs vendorizados |
+| Next 16 | `useSearchParams` exige fronteira `<Suspense>` em rota prerenderizada | Quebra o `pnpm build` — falha barata, no lugar certo |
+| Hibernate | `getClass()` em `equals` quebra com proxy LAZY | `isCrossCurrency()` passou a **mentir** para operação em moeda única após `em.clear()` |
+| Hibernate | Coluna com `DEFAULT` e `insertable=false` precisa de `@Generated(event = INSERT)` | O `POST` devolvia `criadoEm: null` e o `GET` seguinte devolvia o valor certo — divergência só visível comparando as duas respostas. **Aconteceu duas vezes** |
+| Jackson + record | Método derivado não é componente; precisa de `@JsonProperty` | `totalDePaginas` e `temProxima` **sumiam da resposta**, sem erro e sem aviso |
+| PostgreSQL | `jsonb` **normaliza** o documento: reordena chaves e reescreve espaçamento | Três testes vermelhos por formatação, não por conteúdo |
+
+**Mitigação adotada:** conferir contra o POM, os jars e os metadados de configuração antes de escrever qualquer import — `unzip -l` no jar resolveu mais dúvida que qualquer busca. As armadilhas ficaram registradas nos `CLAUDE.md` de cada app para não voltarem a cada sessão, e nos READMEs para quem vier depois.
+
+O padrão que emerge: **as caras não são as que dão erro de compilação.** `@DataJpaTest` mudando de pacote custa trinta segundos. `spring-boot-starter-aop` ausente custa uma tarde, porque o código compila, roda, e simplesmente não aplica o circuit breaker.
 
 ### 3.4 Deriva aritmética: três vezes o mesmo erro
 
@@ -142,6 +165,70 @@ O `AI_USAGE.md` é entregável de repositório **público**. Se tivesse sido com
 Reforça a regra da seção 7: varredura de segredo antes de todo commit, mecânica, **inclusive em arquivos de documentação** — que é onde a guarda tende a baixar.
 
 ---
+
+### 3.6 Testes que passavam pelo motivo errado
+
+O padrão mais recorrente do projeto, e o mais perigoso: **teste verde que não prova o que diz provar**.
+
+| Caso | Por que passava | O que fiz |
+|---|---|---|
+| "Não persiste nada" na simulação | O teste era `@Transactional`; o rollback do próprio teste apagava qualquer escrita indevida | Removi o `@Transactional`: cada requisição abre e fecha a própria transação, e a contagem de linhas depois vale como evidência |
+| Idempotência da liquidação | Idem — a segunda chamada enxergaria a primeira pelo contexto de persistência | Mesma correção |
+| Rollback do lote | Idem | Mesma correção |
+| Divergência de arredondamento no câmbio | O teste afirmava uma divergência que **não existia para aqueles valores** | Procurei os valores que de fato divergem, em vez de assumir: VF 1.003,00 → 178,66 contra 178,67 |
+| Concorrência na liquidação | Passaria igual se as 8 threads tivessem serializado | Instrumentei e conferi que as 7 perdedoras receberam **"conflito de concorrência"**, não "já foi liquidada" — prova de que a corrida aconteceu |
+| Ordenação por convenção | Um teste do PBI-19 fixava estado transitório | Reescrito no PBI-20 |
+
+A IA escreve teste que passa com muita facilidade. Escrever teste que **falharia se o comportamento estivesse errado** exige perguntar, a cada um, "o que precisaria estar quebrado para isto ficar vermelho?" — e essa pergunta não vem de graça.
+
+### 3.7 Falhas silenciosas: código que responde `200` e está quebrado
+
+Categoria distinta da anterior: aqui não é o teste que engana, é o sistema.
+
+| O que | Sintoma | Como apareceu |
+|---|---|---|
+| `ProblemDetail` descartado pelo springdoc | **51 respostas de erro** apontando para schema inexistente; contrato servido normalmente com `200` | Conferindo o contrato gerado, não o código que o gera |
+| `LazyInitializationException` em `/cambio/taxas` | `500` em endpoint que os testes aprovavam — eles eram `@Transactional` | Smoke test com o servidor no ar |
+| `Content-Type` errado virando `500` | Meu próprio `@ExceptionHandler(Exception.class)` engolia as exceções de borda do Spring; falha do cliente relatada como defeito do servidor | Sondando as bordas manualmente |
+| Total do lote estourando `NUMERIC(19,2)` | Respondia `409 "a operação foi alterada por outra requisição"` — o cliente repetiria para sempre algo que jamais funcionaria | Testando valores no limite |
+| Campos derivados sumindo do JSON | `totalDePaginas` e `temProxima` ausentes, sem erro | Teste de contrato que os esperava |
+| Escala decimal no OpenAPI | `"100000.00"` virava `100000` — JSON não preserva zero à direita | Inspecionando o contrato gerado |
+
+**O denominador comum:** nenhum desses aparece em compilação, em teste unitário ou em revisão de código. Todos apareceram **exercitando o sistema de verdade** — servidor no ar, `curl`, contrato gerado, banco com dado.
+
+Foi por isso que passei a subir a aplicação ao final de cada entrega, a partir do PBI-25. O custo é de dois a três minutos, e o que isso rendeu:
+
+| Onde | O que só apareceu com o sistema no ar |
+|---|---|
+| PBI-25 | `cotacaoAplicada` vindo `null` e não ausente · decimais chegando como número JSON · `LazyInitializationException` |
+| PBI-27 | `criadoEm: null` na resposta do `POST` |
+| PBI-31 | `Content-Type` errado virando `500` |
+| PBI-33 | `ProblemDetail` órfão em 51 respostas · escala decimal perdida |
+| PBI-42 | O N+1 na precificação em lote |
+
+Cinco de doze entregas. Nas outras sete, confirmou que estava certo — o que também vale, porque a alternativa era afirmar sem saber.
+
+### 3.8 Quando a própria verificação estava errada
+
+Duas vezes o verificador mentiu antes do código:
+
+**O `grep` que declarou uma métrica ausente.** Ao conferir os critérios de aceite, declarei que o pool de conexões não era observável. Meu padrão exigia espaço depois do nome da métrica, e as séries do Prometheus têm `{labels}`. As métricas existiam desde sempre. O documento teria saído com um "não atendido" **falso**.
+
+**O verificador de âncoras que colapsava espaços.** Ao conferir os links do README, meu script reportou duas âncoras divergentes. O algoritmo do GitHub **não** colapsa espaços múltiplos: `"global — decisão"` gera dois hífens, porque o travessão é removido e sobram dois espaços. As âncoras já estavam certas.
+
+A lição não é "verifique" — eu estava verificando. É que **a ferramenta de verificação é código como qualquer outro, e escrita pela mesma IA que escreveu o que se quer verificar.** Quando ela acusa falha, o primeiro suspeito deve ser ela mesma, especialmente se a falha for surpreendente.
+
+### 3.9 O que ficou por corrigir, e por quê
+
+Honestidade exige listar também o que sei que está errado e não consertei:
+
+**`GET /api/v1/cambio/taxas` responde `500`.** `LazyInitializationException` no mapeamento, com `open-in-view: false`. Detectado no PBI-25, reportado em quatro PRs seguidos, nunca priorizado — a cada rodada havia um PBI de escopo pela frente, e corrigi-lo dentro de um deles produziria um commit cujo tipo mentiria sobre o conteúdo. Continua aberto.
+
+Vale registrar o que o projeto **aprendeu** com ele: todo mapeamento posterior passou a usar `@EntityGraph` explícito, e o teste do `Location` do PBI-27 roda fora da transação de escrita justamente para pegar essa classe de falha.
+
+**N+1 na precificação em lote.** Medido no PBI-42: duas queries por título, uma delas redundante. Declarado como critério **não atendido** em [`docs/acceptance-criteria.md`](docs/acceptance-criteria.md) em vez de silenciado.
+
+Os dois são pequenos. O motivo de não terem sido corrigidos não é técnico — é que a disciplina de commit atômico, que o enunciado avalia, torna caro enfiar correção não relacionada num PBI de escopo. É um custo real da própria convenção, e prefiro declará-lo a fingir que não existe.
 
 ## 4. Onde a verificação evitou o erro
 
@@ -178,17 +265,28 @@ Também corrigiu minha nomenclatura: eu tratava "base 360" e "30/360" como sinô
 
 ## 6. Análise crítica
 
-**Onde economizou tempo.** Estruturação e amplitude: decompor escopo, gerar documentação, varrer o repositório procurando inconsistência entre o que está escrito e o que existe, e verificar compatibilidade de biblioteca mecanicamente. Também é boa interlocutora para *rejeitar* escopo — o caso da mensageria, em que argumentou contra implementar e a favor de documentar a decisão.
+**Onde economizou tempo — de verdade.** Amplitude e estrutura. Decompor o enunciado em 45 itens rastreáveis; escrever documentação extensa e internamente consistente; gerar massa de dados e SQL de relatório; produzir *boilerplate* de teste. E, num projeto sobre dois frameworks à frente do material de treino, **verificar mecanicamente** o que a memória não sabe: `unzip -l` num jar respondeu mais dúvidas de API do que qualquer outra técnica.
 
-**Onde atrapalhou.** Três padrões distintos, com causas distintas:
+Também é boa interlocutora para **rejeitar** escopo. O caso da mensageria — argumentar contra implementar e a favor de documentar a decisão — foi das contribuições mais valiosas, e não produziu uma linha de código.
 
-1. **Confiança uniforme.** A IA afirma com o mesmo tom o que sabe e o que supõe. A senha insegura e a documentação que a contradizia vieram no mesmo pacote, redigidas com a mesma segurança.
-2. **Aritmética em prosa.** Números gerados junto com texto não fecham, e não fecham repetidamente. Precisam de fonte única e verificação por script.
-3. **Diagnóstico enviesado.** Formada a hipótese, a IA interpreta evidência ambígua a favor dela. O `psql` que "autenticou" via `trust` foi lido como confirmação, não questionado.
+**Onde atrapalhou.** Cinco padrões, com causas distintas:
 
-**A conclusão que levo.** A IA é boa produzindo *estrutura* e ruim garantindo *consistência* — inclusive consigo mesma. O ganho real não veio de aceitar o que ela produziu, veio de usá-la e depois **auditá-la**, de preferência pedindo que auditasse o próprio trabalho. O prompt que mais rendeu na sessão inteira foi "reavalie criticamente se isto atende o enunciado", e ele encontrou erro que a geração original não tinha visto.
+1. **Confiança uniforme.** Afirma com o mesmo tom o que sabe e o que supõe. A senha insegura e a documentação que a contradizia vieram no mesmo pacote, com a mesma segurança.
+2. **Aritmética em prosa.** Números gerados junto com texto não fecham, repetidamente. Precisam de fonte única e verificação por script.
+3. **Diagnóstico enviesado.** Formada a hipótese, interpreta evidência ambígua a favor dela. O `psql` que "autenticou" via `trust` foi lido como confirmação.
+4. **Teste que passa em vez de teste que prova.** O padrão mais caro do projeto (§3.6). Escrever teste verde é fácil; escrever teste que ficaria vermelho se o comportamento estivesse errado exige uma pergunta que não vem de graça.
+5. **Otimismo sobre a própria saída.** O sistema "funciona" até alguém exercitá-lo de verdade (§3.7). Seis dos onze *smoke tests* com o servidor no ar encontraram defeito que testes, compilação e revisão não pegaram.
 
-Sobre a exigência de autoria do §2: todo trecho aqui descrito foi revisado, e as decisões de arquitetura — nível de entrega, escopo, convenções de contagem, recusa de mensageria, política de precisão decimal — foram tomadas por mim, com a IA como interlocutora. Os erros das seções 3.1 a 3.4 estão documentados porque foram encontrados por revisão, e é essa revisão que a autoria significa.
+**O que eu faria diferente.** Duas coisas concretas:
+
+- **Subir a aplicação mais cedo, e sempre.** Comecei a fazer isso no PBI-25. Se tivesse começado no PBI-14, o `LazyInitializationException` teria sido pego onde nasceu, em vez de ficar aberto por dezoito itens.
+- **Escrever o `AI_USAGE.md` na hora.** Este documento parou de crescer no PBI-06 e só voltou aqui, no PBI-44. Reconstruir vinte casos de memória é pior do que anotar cada um quando aconteceu — alguns sobreviveram por estarem em mensagem de commit, e os que não estavam quase se perderam. É a única parte da entrega em que a disciplina falhou de forma visível.
+
+**A conclusão que levo.** A IA é boa produzindo *estrutura* e ruim garantindo *consistência* — inclusive consigo mesma, e inclusive nas ferramentas que escreve para se auditar (§3.8). O ganho real não veio de aceitar o que ela produziu, veio de usá-la e depois **confrontá-la com a realidade**: servidor no ar, `EXPLAIN ANALYZE`, contrato gerado, banco com cem mil linhas.
+
+O prompt que mais rendeu na sessão inteira continua sendo *"reavalie criticamente se isto atende o enunciado"*. O segundo mais rendeu foi mais simples: **rodar o que acabou de ser escrito**.
+
+Sobre a exigência de autoria do §2: todo trecho aqui descrito foi revisado, e as decisões de arquitetura — nível de entrega, escopo, convenções de contagem, recusa de mensageria, política de precisão decimal, recusa do `google-java-format`, forma da exceção de duas camadas — foram tomadas por mim, com a IA como interlocutora. Os erros das seções 3.1 a 3.9 estão documentados porque foram encontrados por revisão, e é essa revisão que a autoria significa.
 
 ---
 
@@ -203,3 +301,12 @@ Derivadas dos casos acima, valendo para o resto da entrega:
 - Desconfiar de teste que não pode falhar.
 - Afirmação de segurança feita por quem escreveu o código merece verificação independente.
 - Varredura mecânica de segredo antes de **todo** commit, inclusive em documentação — ver caso 3.5.
+
+Acrescentadas ao longo da execução, cada uma vinda de um caso concreto:
+
+- **Subir a aplicação e exercitá-la** ao final de cada entrega. Compilar e passar nos testes não é o mesmo que funcionar (§3.7).
+- Para cada teste escrito, perguntar **o que precisaria estar quebrado para ele ficar vermelho**. Se a resposta for "nada", o teste é decoração (§3.6).
+- Teste de garantia transacional **não pode ser `@Transactional`** — o rollback do teste mascara exatamente o que se quer provar.
+- Quando a verificação acusa falha surpreendente, **suspeitar dela antes do código** (§3.8).
+- Medir antes de decidir. O `google-java-format` foi aplicado e revertido depois de mostrar 19 mil linhas de diff; os índices do extrato saíram de `EXPLAIN ANALYZE`, e dois não foram criados porque a medição não os justificava.
+- **Registrar o caso na hora em que ele acontece**, não no fim. Esta regra vem do próprio atraso deste documento.
