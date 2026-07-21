@@ -135,7 +135,9 @@ class ConcorrenciaNaLiquidacaoTest {
 
     private static String tituloDe(String corpo) {
         int inicio = corpo.indexOf("\"title\":\"");
-        if (inicio < 0) return "sem titulo";
+        if (inicio < 0) {
+            return "sem titulo";
+        }
         int abre = inicio + 9;
         return corpo.substring(abre, corpo.indexOf('"', abre));
     }

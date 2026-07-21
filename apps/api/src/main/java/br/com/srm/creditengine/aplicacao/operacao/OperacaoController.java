@@ -11,14 +11,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.tags.Tag;
-
 import br.com.srm.creditengine.negocio.cessao.ServicoDeCessao;
 import br.com.srm.creditengine.negocio.liquidacao.ResultadoDaLiquidacao;
 import br.com.srm.creditengine.negocio.liquidacao.ServicoDeLiquidacao;
 import br.com.srm.creditengine.persistencia.entidade.Operacao;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 
 /**

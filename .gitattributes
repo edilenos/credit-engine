@@ -1,0 +1,23 @@
+# Fim de linha deterministico, independente da configuracao de cada maquina.
+#
+# Sem isto, o resultado depende do core.autocrlf de quem clonou: nesta maquina
+# ele e' `true` (Windows, working tree em CRLF), e o CI roda em Linux com LF.
+# O Spotless compara o arquivo como esta em disco, entao a mesma arvore passa
+# no lint local e falha na pipeline — ou o contrario. Ja aconteceu ao ligar o
+# linter (PBI-39).
+#
+# `text=auto eol=lf` guarda tudo em LF no repositorio e entrega LF no working
+# tree, nas duas plataformas. Java, TypeScript, Maven e Node lidam com LF sem
+# problema no Windows.
+
+* text=auto eol=lf
+
+# Binarios nunca sofrem conversao.
+*.ico   binary
+*.png   binary
+*.jpg   binary
+*.jar   binary
+
+# Scripts .cmd sao lidos pelo interpretador do Windows, que exige CRLF.
+*.cmd   text eol=crlf
+*.bat   text eol=crlf

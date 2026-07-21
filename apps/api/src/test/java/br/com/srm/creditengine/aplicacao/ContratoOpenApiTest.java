@@ -106,11 +106,15 @@ class ContratoOpenApiTest {
             for (JsonNode caminho : contrato.get("paths")) {
                 for (JsonNode operacao : caminho) {
                     JsonNode respostas = operacao.get("responses");
-                    if (respostas == null) continue;
+                    if (respostas == null) {
+                        continue;
+                    }
 
                     for (JsonNode resposta : respostas) {
                         JsonNode ref = resposta.at("/content/application~1problem+json/schema/$ref");
-                        if (ref.isMissingNode()) continue;
+                        if (ref.isMissingNode()) {
+                            continue;
+                        }
 
                         total++;
                         String nome = ref.asString().substring(ref.asString().lastIndexOf('/') + 1);

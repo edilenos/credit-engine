@@ -19,15 +19,14 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
-
 import br.com.srm.creditengine.dominio.EntidadeAuditada;
 import br.com.srm.creditengine.dominio.TipoEvento;
 import br.com.srm.creditengine.persistencia.entidade.EventoAuditoria;
 import br.com.srm.creditengine.persistencia.repositorio.EventoAuditoriaRepositorio;
 import br.com.srm.creditengine.persistencia.repositorio.LiquidacaoRepositorio;
 import br.com.srm.creditengine.persistencia.repositorio.OperacaoRepositorio;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Trilha de auditoria (PBI-30).

@@ -1,0 +1,120 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC
+    "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+    "https://checkstyle.org/dtds/configuration_1_3.dtd">
+
+<!--
+  Checkstyle do SRM Credit Engine.
+
+  CONFIGURACAO PROPRIA, e nao sun_checks ou google_checks, por decisao. Os
+  pacotes padrao trazem dezenas de regras de formatacao — largura de linha,
+  quebra de operador, Javadoc obrigatorio em todo metodo publico — que
+  brigariam com o codigo existente e produziriam centenas de avisos que
+  ninguem le. Linter que grita demais e' linter desligado.
+
+  O que esta aqui pega DEFEITO, nao estilo: coisas que compilam, passam nos
+  testes e mordem depois.
+-->
+<module name="Checker">
+    <property name="severity" value="warning"/>
+    <property name="fileExtensions" value="java"/>
+
+    <!-- Arquivo sem quebra de linha final quebra diff e concatenacao. -->
+    <module name="NewlineAtEndOfFile">
+        <property name="lineSeparator" value="lf_cr_crlf"/>
+    </module>
+
+    <module name="TreeWalker">
+
+        <!-- ============================================ defeitos de verdade -->
+
+        <!--
+          if de uma linha sem chave e' o bug do goto fail: acrescentar uma
+          segunda linha ao corpo parece inofensivo e muda o fluxo.
+        -->
+        <module name="NeedBraces"/>
+
+        <!-- Comparar String com == compara referencia. Compila e mente. -->
+        <module name="StringLiteralEquality"/>
+
+        <!-- catch vazio engole a falha e some com o rastro. -->
+        <module name="EmptyCatchBlock">
+            <property name="exceptionVariableName" value="ignorado|esperado|naoExiste"/>
+        </module>
+
+        <!-- Atribuir ao parametro faz o argumento original sumir do metodo. -->
+        <module name="ParameterAssignment"/>
+
+        <!-- equals sem hashCode quebra HashMap e HashSet silenciosamente. -->
+        <module name="EqualsHashCode"/>
+
+        <!-- Ordem invertida deixa NullPointerException possivel. -->
+        <module name="EqualsAvoidNull"/>
+
+        <!-- Bloco condicional vazio costuma ser codigo removido pela metade. -->
+        <module name="EmptyStatement"/>
+
+        <!-- Sobrescrever clone ou finalize sem chamar super quebra a cadeia. -->
+        <module name="SuperClone"/>
+
+        <!-- switch sem default deixa caso novo passar batido. -->
+        <module name="MissingSwitchDefault"/>
+
+        <!-- Fall-through nao intencional em switch. -->
+        <module name="FallThrough"/>
+
+        <!-- Declarar varias variaveis numa linha esconde inicializacao. -->
+        <module name="MultipleVariableDeclarations"/>
+
+        <!-- Retorno booleano montado com if/else redundante. -->
+        <module name="SimplifyBooleanReturn"/>
+        <module name="SimplifyBooleanExpression"/>
+
+        <!-- ================================================= higiene basica -->
+
+        <!--
+          Import com curinga esconde de onde a classe vem. Neste projeto isso
+          importa mais que o normal: ha pares de classes homonimas em pacotes
+          diferentes (Jackson 2 e 3, por exemplo).
+        -->
+        <module name="AvoidStarImport"/>
+        <module name="UnusedImports"/>
+        <module name="RedundantImport"/>
+
+        <!-- Modificador redundante em interface e enum e' ruido. -->
+        <module name="RedundantModifier"/>
+
+        <!--
+          DeclarationOrder foi AVALIADA E DESCARTADA. Ela acusou cinco pontos em
+          que uma constante fica junto do metodo que a usa — por exemplo os
+          SQLState em TratadorDeExcecoes, ao lado do handler que os interpreta.
+          Isso e' locality, e ler melhor ali do que no topo do arquivo e' o
+          argumento a favor, nao contra.
+
+          Mais importante: e' regra de ESTILO, e o criterio deste arquivo,
+          escrito no cabecalho, e' pegar defeito. Manter a regra so porque ela
+          existe seria deixar a ferramenta ditar o codigo.
+        -->
+
+        <!-- ================================================== nomenclatura -->
+
+        <module name="PackageName">
+            <property name="format" value="^[a-z]+(\.[a-z][a-z0-9]*)*$"/>
+        </module>
+        <module name="TypeName"/>
+        <module name="MethodName"/>
+        <module name="LocalVariableName"/>
+        <module name="ParameterName"/>
+
+        <!--
+          `log` e' excecao explicita. `private static final Logger log` e' a
+          convencao universal do SLF4J, e renomear seis loggers para LOG so
+          para satisfazer a regra seria a ferramenta ditando o codigo. Toda
+          outra constante segue MAIUSCULA_COM_UNDERSCORE.
+        -->
+        <module name="ConstantName">
+            <property name="format" value="^(log|[A-Z][A-Z0-9]*(_[A-Z0-9]+)*)$"/>
+        </module>
+
+    </module>
+</module>
