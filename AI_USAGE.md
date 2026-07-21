@@ -188,7 +188,7 @@ Categoria distinta da anterior: aqui não é o teste que engana, é o sistema.
 | O que | Sintoma | Como apareceu |
 |---|---|---|
 | `ProblemDetail` descartado pelo springdoc | **51 respostas de erro** apontando para schema inexistente; contrato servido normalmente com `200` | Conferindo o contrato gerado, não o código que o gera |
-| `LazyInitializationException` em `/cambio/taxas` | `500` em endpoint que os testes aprovavam — eles eram `@Transactional` | Smoke test com o servidor no ar |
+| `LazyInitializationException` em `/cambio/taxas` | `500` em endpoint que os testes aprovavam — eles eram `@Transactional` (corrigido depois da `v1.0.0`, §3.9) | Smoke test com o servidor no ar |
 | `Content-Type` errado virando `500` | Meu próprio `@ExceptionHandler(Exception.class)` engolia as exceções de borda do Spring; falha do cliente relatada como defeito do servidor | Sondando as bordas manualmente |
 | Total do lote estourando `NUMERIC(19,2)` | Respondia `409 "a operação foi alterada por outra requisição"` — o cliente repetiria para sempre algo que jamais funcionaria | Testando valores no limite |
 | Campos derivados sumindo do JSON | `totalDePaginas` e `temProxima` ausentes, sem erro | Teste de contrato que os esperava |
@@ -220,15 +220,21 @@ A lição não é "verifique" — eu estava verificando. É que **a ferramenta d
 
 ### 3.9 O que ficou por corrigir, e por quê
 
-Honestidade exige listar também o que sei que está errado e não consertei:
+Honestidade exige listar também o que sei que está errado. Eram dois no fechamento da `v1.0.0`; um foi corrigido depois, e mantenho o relato do que o deixou aberto tanto tempo — é a parte que interessa.
 
-**`GET /api/v1/cambio/taxas` responde `500`.** `LazyInitializationException` no mapeamento, com `open-in-view: false`. Detectado no PBI-25, reportado em quatro PRs seguidos, nunca priorizado — a cada rodada havia um PBI de escopo pela frente, e corrigi-lo dentro de um deles produziria um commit cujo tipo mentiria sobre o conteúdo. Continua aberto.
+**`GET /api/v1/cambio/taxas` respondia `500`** — ✅ **corrigido depois da `v1.0.0`.** `LazyInitializationException` no mapeamento, com `open-in-view: false`. Detectado no PBI-25, reportado em quatro PRs seguidos, nunca priorizado: a cada rodada havia um PBI de escopo pela frente, e corrigi-lo dentro de um deles produziria um commit cujo tipo mentiria sobre o conteúdo.
+
+Ficou aberto por **vinte itens**, e o que o manteve invisível foi exatamente o padrão da §3.6: `CambioControllerTest` é `@Transactional`, então ali a sessão fica aberta a requisição inteira e o mapeamento funciona. Testes verdes, CI verde, endpoint quebrado.
+
+A correção veio com o teste escrito **primeiro** e conferido falhando — 3 de 4 casos com `LazyInitializationException` antes de tocar no código. A classe nova, `CambioForaDaTransacaoTest`, não é transacional de propósito, e o propósito é esse.
+
+> E ela ensinou o que documenta: por não ser `@Transactional`, a cotação que registra persistia e sombreava o *seed*, quebrando outro teste que lia 5,41 onde esperava 5,40. Escrever sem transação exige limpar explicitamente.
 
 Vale registrar o que o projeto **aprendeu** com ele: todo mapeamento posterior passou a usar `@EntityGraph` explícito, e o teste do `Location` do PBI-27 roda fora da transação de escrita justamente para pegar essa classe de falha.
 
 **N+1 na precificação em lote.** Medido no PBI-42: duas queries por título, uma delas redundante. Declarado como critério **não atendido** em [`docs/acceptance-criteria.md`](docs/acceptance-criteria.md) em vez de silenciado.
 
-Os dois são pequenos. O motivo de não terem sido corrigidos não é técnico — é que a disciplina de commit atômico, que o enunciado avalia, torna caro enfiar correção não relacionada num PBI de escopo. É um custo real da própria convenção, e prefiro declará-lo a fingir que não existe.
+Os dois são pequenos, e o motivo de terem chegado ao fim do backlog abertos não é técnico: a disciplina de commit atômico, que o enunciado avalia, torna caro enfiar correção não relacionada num PBI de escopo. É um custo real da própria convenção, e prefiro declará-lo a fingir que não existe. A resposta certa a esse custo é a que veio depois da `v1.0.0` — um `fix/` próprio, com o teste que faltava —, não empurrar a correção para dentro de um `feat:`.
 
 ## 4. Onde a verificação evitou o erro
 
@@ -279,7 +285,7 @@ Também é boa interlocutora para **rejeitar** escopo. O caso da mensageria — 
 
 **O que eu faria diferente.** Duas coisas concretas:
 
-- **Subir a aplicação mais cedo, e sempre.** Comecei a fazer isso no PBI-25. Se tivesse começado no PBI-14, o `LazyInitializationException` teria sido pego onde nasceu, em vez de ficar aberto por dezoito itens.
+- **Subir a aplicação mais cedo, e sempre.** Comecei a fazer isso no PBI-25. Se tivesse começado no PBI-14, o `LazyInitializationException` teria sido pego onde nasceu, em vez de ficar aberto por vinte itens e sobreviver à `v1.0.0`.
 - **Escrever o `AI_USAGE.md` na hora.** Este documento parou de crescer no PBI-06 e só voltou aqui, no PBI-44. Reconstruir vinte casos de memória é pior do que anotar cada um quando aconteceu — alguns sobreviveram por estarem em mensagem de commit, e os que não estavam quase se perderam. É a única parte da entrega em que a disciplina falhou de forma visível.
 
 **A conclusão que levo.** A IA é boa produzindo *estrutura* e ruim garantindo *consistência* — inclusive consigo mesma, e inclusive nas ferramentas que escreve para se auditar (§3.8). O ganho real não veio de aceitar o que ela produziu, veio de usá-la e depois **confrontá-la com a realidade**: servidor no ar, `EXPLAIN ANALYZE`, contrato gerado, banco com cem mil linhas.
