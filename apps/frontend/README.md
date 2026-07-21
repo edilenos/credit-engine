@@ -1,5 +1,7 @@
 # Frontend — SRM Credit Engine
 
+[![CI](https://github.com/edilenos/credit-engine/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/edilenos/credit-engine/actions/workflows/ci.yml)
+
 SPA em Next.js 16 / React 19 que consome a API de precificação e liquidação.
 
 O README da raiz do repositório cobre o projeto inteiro; este documento trata só do frontend.

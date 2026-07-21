@@ -1,8 +1,13 @@
 name: CI
 
-# Esqueleto do pipeline (PBI-05): build e testes.
-# O linter entra no PBI-40, quando Spotless e Checkstyle existirem — o
-# enunciado exige CI rodando testes *e* lint (paragrafo 6, nivel Senior).
+# Pipeline completa (PBI-40): lint e testes dos dois apps, mais o build das
+# imagens. O paragrafo 6 do enunciado, no nivel Senior, exige CI rodando testes
+# *e* lint — nao um dos dois.
+#
+# O lint da API nao aparece como step proprio de proposito: `./mvnw verify` ja
+# executa Spotless e Checkstyle, porque os dois estao ligados aquela fase. E' a
+# mesma coisa que o hook de pre-push roda localmente, e essa identidade e' o que
+# impede o classico "passa aqui e quebra la".
 
 on:
   push:
@@ -19,7 +24,7 @@ concurrency:
 
 jobs:
   api:
-    name: API — build e testes
+    name: API — lint e testes
     runs-on: ubuntu-latest
 
     services:
@@ -49,9 +54,11 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+          # Cache do ~/.m2 chaveado pelo pom.xml. Sem ele cada execucao rebaixa
+          # o Boot inteiro.
           cache: maven
 
-      - name: Build e testes
+      - name: Lint e testes
         working-directory: apps/api
         env:
           # Exercita o caminho de variavel de ambiente da configuracao: aqui
@@ -60,10 +67,61 @@ jobs:
           DB_URL: jdbc:postgresql://localhost:5432/credit-engine
           DB_USERNAME: postgres
           DB_PASSWORD: ci-${{ github.run_id }}-${{ github.run_attempt }}
+        # verify = spotless:check + checkstyle:check + testes.
         run: ./mvnw --batch-mode verify
 
+      - name: Resumo dos testes
+        # Roda mesmo com falha: e' justamente quando o resumo importa.
+        if: always()
+        run: |
+          RELATORIOS="apps/api/target/surefire-reports"
+          if [ ! -d "$RELATORIOS" ]; then
+            echo "Sem relatorios de teste." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # Conta elementos <testcase>, e NAO o atributo tests="" do
+          # <testsuite>. Com classes @Nested os dois divergem: em
+          # EstrategiasDeSpreadTest o atributo diz 11 e ha 12 casos, e o
+          # somatorio dava 298 contra os 299 que o Maven reporta. Resumo que
+          # erra o numero mina a confianca no relatorio inteiro.
+          #
+          # Feito com grep em vez de action de terceiro: sao poucas linhas, e
+          # cada action externa e' codigo de terceiro rodando com o token da
+          # execucao.
+          TOTAL=$(cat "$RELATORIOS"/TEST-*.xml 2>/dev/null | grep -c '<testcase' || true)
+          FALHAS=$(cat "$RELATORIOS"/TEST-*.xml 2>/dev/null | grep -c '<failure' || true)
+          ERROS=$(cat "$RELATORIOS"/TEST-*.xml 2>/dev/null | grep -c '<error' || true)
+          IGNORADOS=$(cat "$RELATORIOS"/TEST-*.xml 2>/dev/null | grep -c '<skipped' || true)
+
+          {
+            echo "## API — testes"
+            echo ""
+            echo "| Total | Falhas | Erros | Ignorados |"
+            echo "|---:|---:|---:|---:|"
+            echo "| $TOTAL | $FALHAS | $ERROS | $IGNORADOS |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$FALHAS" -gt 0 ] || [ "$ERROS" -gt 0 ]; then
+            {
+              echo ""
+              echo "### Casos que falharam"
+              echo ""
+              grep -l '<failure\|<error' "$RELATORIOS"/TEST-*.xml 2>/dev/null \
+                | sed 's|.*/TEST-||;s|\.xml$||;s|^|- `|;s|$|`|'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Guarda os relatorios quando falha
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: relatorios-de-teste-api
+          path: apps/api/target/surefire-reports/
+          retention-days: 7
+
   frontend:
-    name: Frontend — build
+    name: Frontend — lint e build
     runs-on: ubuntu-latest
 
     steps:
@@ -89,6 +147,48 @@ jobs:
         # package.json, em vez de resolver silenciosamente outra arvore.
         run: pnpm install --frozen-lockfile
 
+      - name: Lint
+        working-directory: apps/frontend
+        run: pnpm lint
+
       - name: Build
         working-directory: apps/frontend
+        # Sem NEXT_PUBLIC_API_URL de proposito: a leitura e' preguicosa
+        # (services/config.ts), entao o build precisa passar sem ela. Se um dia
+        # alguem mover a leitura para o topo do modulo, este step quebra — que
+        # e' o aviso certo, porque quebraria o build de qualquer deploy.
         run: pnpm build
+
+  imagens:
+    name: Imagens Docker
+    runs-on: ubuntu-latest
+    # Sem `needs`: falha de lint nao deve esconder um Dockerfile quebrado. Os
+    # tres resultados aparecem juntos no PR.
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Constroi as imagens pelo Compose
+        env:
+          # O Compose interpola as variaveis ao ler o arquivo, inclusive para
+          # `build`, e DB_PASSWORD usa `:?`. Valor descartavel, so para o
+          # parse: nada aqui sobe.
+          DB_PASSWORD: build-somente
+        # Pelo Compose, e nao por `docker build` em cada Dockerfile: assim o
+        # proprio docker-compose.yml e' validado junto. Erro de sintaxe na
+        # orquestracao so apareceria na maquina de quem for avaliar.
+        run: docker compose build
+
+      - name: Confere que as imagens nao rodam como root
+        run: |
+          FALHOU=0
+          for imagem in credit-engine-api credit-engine-frontend; do
+            USUARIO=$(docker image inspect "$imagem" --format '{{.Config.User}}')
+            if [ -z "$USUARIO" ] || [ "$USUARIO" = "root" ]; then
+              echo "::error::$imagem roda como root"
+              FALHOU=1
+            else
+              echo "$imagem -> usuario '$USUARIO'"
+            fi
+          done
+          exit $FALHOU
