@@ -127,6 +127,8 @@ Logs não carregam documento de cedente ou sacado, chave de idempotência, nem v
 
 ## Arquitetura
 
+> Visão em dois níveis, com diagramas: [C4 — Contexto](../../docs/c4-context.md) e [C4 — Contêineres](../../docs/c4-container.md). O segundo detalha estas camadas e a exceção do relatório.
+
 Três camadas, com uma exceção deliberada.
 
 ```
