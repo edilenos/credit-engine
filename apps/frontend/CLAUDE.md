@@ -34,7 +34,15 @@ Not the Boot default 8080. The base URL comes from `NEXT_PUBLIC_API_URL`, read i
 
 ## Current state
 
-Layers in place (PBI-25) and the **Painel do Operador** working at `/` (PBI-26): form → debounce → `useSimulacao` → API, with the rate composition rendered, verified against a running API.
+Layers in place (PBI-25), the **Painel do Operador** at `/` (PBI-26) and the **Grid de Transações** at `/transacoes` (PBI-37), both verified against a running API.
+
+### Two patterns established by the grid, worth reusing
+
+**Filter state lives in the URL, not `useState`.** `useFiltroNaUrl` reads `useSearchParams` and writes with `router.replace` — `push` would stack a history entry per keystroke, so Back would walk the user letter by letter instead of leaving the screen. Applying a filter always resets to page 0: filtering while on page 12 of a result that now has 3 shows an empty table, which reads as "there is nothing" rather than "I changed the filter".
+
+**`carregando` is derived, not stored.** The stored result carries the *key* of the filter that produced it, and loading is `requested key !== loaded key`. This sidesteps the `react-hooks/set-state-in-effect` lint rule — synchronous `setState` in an effect body is an error, not a warning — and solves the stale-response problem for free: a response is only shown if it matches the current filter.
+
+> ⚠️ **`useSearchParams` needs a `<Suspense>` boundary** on a prerendered route. Without it `pnpm build` fails. `app/transacoes/page.tsx` wraps the grid for exactly this reason.
 
 Reference data for the selects comes from `GET /api/v1/cadastros/{tipos-recebivel,moedas}` — added in PBI-26 because no PBI had covered it, and hardcoding the list in the frontend would contradict the reason the spread lives in the DB.
 
