@@ -38,6 +38,10 @@ When picking up a task, find its PBI first — the branch name and commit messag
 
 Other planned docs: `docs/schema.sql` (PBI-12), `docs/c4-context.md` + `docs/c4-container.md` (PBI-41), `docs/performance.md` (PBI-36).
 
+## Code style
+- Minimal comments: explain only the non-obvious "why", never the "what".
+- Prefer self-documenting code with clear names over line-by-line comments.
+
 ### Scope decision — settled: full Sênior, nothing cut
 
 **Scenario A: all 45 PBIs, ~78.5 h ≈ 9.8 working days**, against a nominal 3–4 days (24–32 h). Decided before the first commit, invoking the spec's §9.2 clause that the deadline is *"ajustável conforme complexidade entregue"*. Backlog §6.1 carries the arithmetic.
