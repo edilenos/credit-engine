@@ -60,6 +60,7 @@ class LiquidacaoControllerTest {
         String corpo = """
                 {
                   "documentoCedente": "%s",
+                  "registradoPor": "operador.teste",
                   "moedaTitulo": "BRL",
                   "moedaLiquidacao": "%s",
                   "dataOperacao": "2026-07-20",

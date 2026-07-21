@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import br.com.srm.creditengine.negocio.auditoria.ServicoDeAuditoria;
 import br.com.srm.creditengine.negocio.precificacao.ContextoDePrecificacao;
 import br.com.srm.creditengine.negocio.precificacao.PrecificacaoDaOperacao;
 import br.com.srm.creditengine.negocio.precificacao.PrecificacaoDoTitulo;
@@ -54,17 +55,20 @@ public class ServicoDeCessao {
     private final CedenteRepositorio cedentes;
     private final TipoRecebivelRepositorio tipos;
     private final MoedaRepositorio moedas;
+    private final ServicoDeAuditoria auditoria;
 
     public ServicoDeCessao(PrecificadorDeOperacao precificador,
                            OperacaoRepositorio operacoes,
                            CedenteRepositorio cedentes,
                            TipoRecebivelRepositorio tipos,
-                           MoedaRepositorio moedas) {
+                           MoedaRepositorio moedas,
+                           ServicoDeAuditoria auditoria) {
         this.precificador = precificador;
         this.operacoes = operacoes;
         this.cedentes = cedentes;
         this.tipos = tipos;
         this.moedas = moedas;
+        this.auditoria = auditoria;
     }
 
     /**
@@ -113,7 +117,14 @@ public class ServicoDeCessao {
                     cadastrados));
         }
 
-        return operacoes.save(operacao);
+        Operacao registrada = operacoes.save(operacao);
+
+        // Dentro da mesma transacao: se a gravacao falhar depois daqui, o evento
+        // some junto. Auditoria de cessao que nao existiu e' pior que auditoria
+        // ausente.
+        auditoria.registrarCessao(registrada, solicitacao.registradoPor());
+
+        return registrada;
     }
 
     /**
