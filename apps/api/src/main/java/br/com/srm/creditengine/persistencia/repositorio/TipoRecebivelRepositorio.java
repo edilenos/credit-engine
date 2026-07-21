@@ -1,5 +1,6 @@
 package br.com.srm.creditengine.persistencia.repositorio;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -18,4 +19,12 @@ public interface TipoRecebivelRepositorio extends JpaRepository<TipoRecebivel, L
     Optional<TipoRecebivel> findByCodigo(String codigo);
 
     List<TipoRecebivel> findByAtivoTrue();
+
+    /**
+     * Carrega varios tipos de uma vez, para lote.
+     *
+     * <p>Um lote usa poucos produtos distintos; sem isto, precificar 500
+     * titulos faria 500 consultas para ler duas ou tres linhas.
+     */
+    List<TipoRecebivel> findByCodigoIn(Collection<String> codigos);
 }
