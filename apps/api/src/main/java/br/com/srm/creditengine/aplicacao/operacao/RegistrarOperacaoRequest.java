@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 import br.com.srm.creditengine.negocio.cessao.SolicitacaoDeCessao;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
@@ -30,6 +31,7 @@ public record RegistrarOperacaoRequest(
 
         @NotBlank(message = "documentoCedente e obrigatorio")
         @Pattern(regexp = "^\\d{14}$", message = "documentoCedente deve ter 14 digitos")
+        @Schema(description = "CNPJ do cedente, so digitos.", example = "11222333000181")
         String documentoCedente,
 
         // Sem @NotEmpty: lote vazio e' recusado pelo dominio, com
@@ -52,6 +54,7 @@ public record RegistrarOperacaoRequest(
         // login — mesma situacao do liquidadoPor.
         @NotBlank(message = "registradoPor e obrigatorio")
         @Size(max = 80, message = "registradoPor aceita no maximo 80 caracteres")
+        @Schema(description = "Quem registrou a cessao. Vai para a trilha de auditoria.", example = "ana.mesa")
         String registradoPor,
 
         LocalDate dataOperacao) {
@@ -91,6 +94,7 @@ public record RegistrarOperacaoRequest(
 
             @NotBlank(message = "numeroDocumento e obrigatorio")
             @Size(max = 50, message = "numeroDocumento aceita no maximo 50 caracteres")
+            @Schema(description = "Identificacao do titulo no cedente.", example = "DUP-2026-0001")
             String numeroDocumento,
 
             @NotBlank(message = "documentoSacado e obrigatorio")
@@ -99,6 +103,7 @@ public record RegistrarOperacaoRequest(
             // 11 digitos, inclusive um documento de 30.
             @Pattern(regexp = "^(\\d{11}|\\d{14})$",
                     message = "documentoSacado deve ter 11 digitos (CPF) ou 14 (CNPJ)")
+            @Schema(description = "CPF (11 digitos) ou CNPJ (14) de quem deve.", example = "52998224725")
             String documentoSacado,
 
             @NotNull(message = "valorFace e obrigatorio")

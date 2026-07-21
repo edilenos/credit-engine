@@ -1,5 +1,6 @@
 package br.com.srm.creditengine.aplicacao.operacao;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -23,9 +24,11 @@ public record LiquidarRequest(
 
         @NotBlank(message = "chaveIdempotencia e obrigatoria")
         @Size(max = 64, message = "chaveIdempotencia aceita no maximo 64 caracteres")
+        @Schema(description = "Identificador do cliente para este pedido. Repetir a chave devolve a liquidacao original, com 200 em vez de 201.", example = "liq-2026-07-21-0001")
         String chaveIdempotencia,
 
         @NotBlank(message = "liquidadoPor e obrigatorio")
         @Size(max = 80, message = "liquidadoPor aceita no maximo 80 caracteres")
+        @Schema(description = "Quem autorizou a liquidacao. Vai para a trilha de auditoria.", example = "bruno.backoffice")
         String liquidadoPor) {
 }

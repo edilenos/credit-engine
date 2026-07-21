@@ -46,11 +46,27 @@
 			avaliacao chamado "precisao decimal". Ver docs/backlog.md, PBI-21.
 		-->
 		<big-math.version>2.3.2</big-math.version>
+		<!--
+			springdoc-openapi: usar a linha 3.0.x, que e a do Spring Boot 4.
+			A 2.8.x e a do Boot 3 e e o que a maioria do material disponivel vai
+			sugerir; ela resolve e compila, e falha na autoconfiguracao — mesma
+			armadilha do resilience4j acima.
+
+			O 3.0.3 foi construido contra Boot 4.0.5 e aqui o parent e 4.1.0.
+			Conferido por dependency:tree e por smoke test do /swagger-ui.html
+			com o servidor no ar, nao por suposicao. Ver docs/backlog.md, R1/R9.
+		-->
+		<springdoc.version>3.0.3</springdoc.version>
 	</properties>
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-actuator</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springdoc</groupId>
+			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+			<version>${springdoc.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>io.github.resilience4j</groupId>

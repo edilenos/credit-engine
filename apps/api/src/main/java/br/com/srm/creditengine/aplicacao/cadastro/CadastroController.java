@@ -6,6 +6,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import br.com.srm.creditengine.negocio.cadastro.ServicoDeCadastros;
 
 /**
@@ -18,6 +20,7 @@ import br.com.srm.creditengine.negocio.cadastro.ServicoDeCadastros;
  */
 @RestController
 @RequestMapping("/api/v1/cadastros")
+@Tag(name = "Cadastros", description = "Dados de referencia para os formularios")
 public class CadastroController {
 
     private final ServicoDeCadastros cadastros;

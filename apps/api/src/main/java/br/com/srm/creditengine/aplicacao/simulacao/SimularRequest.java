@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 import br.com.srm.creditengine.negocio.precificacao.SolicitacaoDeSimulacao;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
@@ -37,16 +38,22 @@ public record SimularRequest(
         // do payload, nao do negocio.
         @NotNull(message = "titulos e obrigatorio")
         @Size(max = LOTE_MAXIMO, message = "lote limitado a " + LOTE_MAXIMO + " recebiveis")
+        @Schema(description = "Recebiveis a precificar. Lote vazio e recusado com 422.")
         List<@Valid TituloRequest> titulos,
 
         @NotNull(message = "moedaTitulo e obrigatoria")
         @Pattern(regexp = "^[A-Z]{3}$", message = "moedaTitulo deve ser um codigo ISO 4217 com 3 letras maiusculas")
+        @Schema(description = "Moeda em que os titulos estao denominados.", example = "BRL")
         String moedaTitulo,
 
         @NotNull(message = "moedaLiquidacao e obrigatoria")
         @Pattern(regexp = "^[A-Z]{3}$", message = "moedaLiquidacao deve ser um codigo ISO 4217 com 3 letras maiusculas")
+        @Schema(description = "Moeda do desembolso. Diferente da moeda do titulo torna a "
+                + "operacao cross-currency, e o cambio e' aplicado ao final.", example = "USD")
         String moedaLiquidacao,
 
+        @Schema(description = "Data-base da precificacao. Ausente significa hoje.",
+                example = "2026-07-20")
         LocalDate dataOperacao) {
 
     /**
@@ -83,15 +90,26 @@ public record SimularRequest(
             @NotNull(message = "tipoRecebivel e obrigatorio")
             @Pattern(regexp = "^[A-Z0-9_]{1,40}$",
                     message = "tipoRecebivel aceita letras maiusculas, digitos e underscore")
+            @Schema(description = "Codigo do produto. Consulte /api/v1/cadastros/tipos-recebivel.",
+                    example = "DUPLICATA_MERCANTIL")
             String tipoRecebivel,
 
             @NotNull(message = "valorFace e obrigatorio")
             @DecimalMin(value = "0.01", message = "valorFace deve ser positivo")
             @Digits(integer = 17, fraction = 2,
                     message = "valorFace aceita no maximo 17 inteiros e 2 decimais")
+            // multipleOf = 0.01 e' como o OpenAPI expressa "duas casas decimais"
+            // de forma legivel por maquina. O `example` sozinho nao serve: JSON
+            // nao preserva zero a direita, entao "100000.00" chega ao contrato
+            // como 100000 e a escala desaparece.
+            @Schema(description = "Valor nominal, com exatamente duas casas decimais. "
+                    + "O total do lote tambem precisa caber em 17 inteiros e 2 decimais.",
+                    example = "100000.00", multipleOf = 0.01)
             BigDecimal valorFace,
 
             @NotNull(message = "dataVencimento e obrigatoria")
+            @Schema(description = "Vencimento do titulo. Anterior a data da operacao e "
+                    + "recusado com 422.", example = "2026-09-04")
             LocalDate dataVencimento) {
 
         private SolicitacaoDeSimulacao.TituloASimular paraDominio() {
